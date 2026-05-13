@@ -1,0 +1,12 @@
+.h1 { font-family: var(--font-display); font-size: 2.5rem; letter-spacing: 0.08em; color: var(--amber); margin-bottom: 1.5rem; }
+.in { width: 100%; background: var(--bg-1); color: var(--text); border: 1px solid var(--border); padding: 0.75rem;
+      font-family: var(--font-mono); font-size: 0.9rem; }
+.in:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 8px rgba(255,182,39,0.25); }
+.sec { margin-top: 2rem; }
+.h2  { font-family: var(--font-display); letter-spacing: 0.15em; font-size: 1.1rem; margin-bottom: 0.5rem; }
+.list { list-style: none; font-family: var(--font-mono); font-size: 0.8rem; }
+.list li { display: flex; gap: 1rem; padding: 0.3rem 0; border-bottom: 1px dashed var(--border); }
+.list button { background: none; border: none; color: var(--teal); cursor: pointer; font-family: inherit; padding: 0; }
+.list button:hover { text-decoration: underline; }
+.path { color: var(--muted); }
+.empty { color: var(--muted); font-size: 0.85rem; margin-top: 1rem; }
