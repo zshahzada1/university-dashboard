@@ -39,4 +39,9 @@ export const api = {
   search: (q: string) => fetch(`/api/search?q=${encodeURIComponent(q)}`).then(j<SearchHit[]>),
   open:   (rel_path: string) =>
     fetch('/api/open', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rel_path }) }).then(j<void>),
+
+  state:   () => fetch('/api/state').then(j<{dismissed: Record<string, string[]>}>),
+  dismiss: (date: string, topic_id: string) =>
+    fetch('/api/state/dismiss', { method: 'POST', headers: { 'content-type': 'application/json' },
+                                  body: JSON.stringify({ date, topic_id }) }).then(j<void>),
 }

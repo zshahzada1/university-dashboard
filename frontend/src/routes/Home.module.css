@@ -1,0 +1,7 @@
+.head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2rem; }
+.head h1 { font-family: var(--font-display); letter-spacing: 0.04em; font-size: clamp(2.5rem, 5vw, 4rem); color: var(--amber); text-shadow: 0 0 12px rgba(255,182,39,0.35); }
+.date { font-family: var(--font-mono); color: var(--text-2); }
+.sec { margin-top: 2.5rem; }
+.h2  { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.3em; color: var(--text-2); margin-bottom: 1rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+.modGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
