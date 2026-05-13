@@ -1,0 +1,6 @@
+.box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.in  { flex: 1; background: var(--bg-1); color: var(--text); border: 1px solid var(--border);
+       padding: 0.6rem 0.75rem; font-family: var(--font-mono); }
+.in:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 6px rgba(255,182,39,0.25); }
+.btn { background: var(--amber); color: var(--bg-0); border: none; padding: 0 1rem; font-family: var(--font-mono);
+       letter-spacing: 0.15em; cursor: pointer; }

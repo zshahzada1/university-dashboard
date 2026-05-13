@@ -1,0 +1,7 @@
+.row { display: grid; grid-template-columns: 20px 1fr auto auto; align-items: center; gap: 0.75rem;
+       padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+.row.done .text { color: var(--muted); text-decoration: line-through; }
+.text { font-size: 0.95rem; }
+.mod  { font-family: var(--font-mono); font-size: 0.7rem; color: var(--amber); }
+.del  { background: none; border: none; color: var(--muted); cursor: pointer; }
+.del:hover { color: var(--alert); }
