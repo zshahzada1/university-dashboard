@@ -1,0 +1,5 @@
+.box { display: flex; flex-direction: column; gap: 0.25rem; }
+.ta  { width: 100%; min-height: 240px; background: var(--bg-1); color: var(--text);
+       border: 1px solid var(--border); padding: 0.75rem; font-family: var(--font-mono); font-size: 0.85rem; resize: vertical; }
+.ta:focus { outline: none; border-color: var(--amber); }
+.bar { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); align-self: flex-end; }
