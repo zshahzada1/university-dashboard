@@ -1,0 +1,7 @@
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; }
+.day  { background: var(--bg-1); border: 1px solid var(--border); padding: 0.5rem; min-height: 140px; }
+.head { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-2); margin-bottom: 0.5rem; }
+.pill { font-family: var(--font-mono); font-size: 0.7rem; padding: 0.2rem 0.4rem; margin-top: 0.25rem;
+        border-left: 2px solid var(--teal); background: var(--bg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deadline { border-left-color: var(--alert); color: var(--alert); }
+.event    { border-left-color: var(--amber); color: var(--amber); }
