@@ -1,0 +1,33 @@
+:root {
+  /* Bases */
+  --bg-0:   #050810;
+  --bg-1:   #0c1018;
+  --bg-2:   #141a26;
+  --surface:    #161d2c;
+  --border:     #2a3245;
+  --border-hot: #ffb627;
+
+  /* Signals */
+  --amber:   #ffb627;
+  --teal:    #05d9e8;
+  --maroon:  #ff2a6d;
+  --purple:  #b026ff;
+  --alert:   #ff003c;
+
+  /* Text */
+  --text:    #e8eef7;
+  --text-2:  #a9b3c6;
+  --muted:   #6e7891;
+
+  /* Module accents */
+  --m-fa583: var(--maroon);
+  --m-fn585: var(--teal);
+  --m-fa565: var(--purple);
+
+  /* Type */
+  --font-display: 'Rajdhani', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'DM Mono', monospace;
+  --font-body:    'Inter', system-ui, sans-serif;
+
+  --radius: 2px;
+}
