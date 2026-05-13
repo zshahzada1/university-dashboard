@@ -5,6 +5,9 @@ from app.settings import Settings
 def _settings(uni: Path, data: Path) -> Settings:
     return Settings(university_dir=uni, data_dir=data)
 
+import pytest
+
+@pytest.mark.skip_isolate
 def test_seeds_modules_topics_assignments_when_missing(tmp_path: Path):
     uni = tmp_path / "uni"
     (uni / "FA583" / "Week 1 - Tangible non-current assets").mkdir(parents=True)
@@ -24,6 +27,7 @@ def test_seeds_modules_topics_assignments_when_missing(tmp_path: Path):
     assert s.tasks_path.exists() and json.loads(s.tasks_path.read_text()) == []
     assert s.events_path.exists() and json.loads(s.events_path.read_text()) == []
 
+@pytest.mark.skip_isolate
 def test_does_not_overwrite_existing(tmp_path: Path):
     uni = tmp_path / "uni"; uni.mkdir()
     data = tmp_path / "data"; data.mkdir()
