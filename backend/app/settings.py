@@ -1,0 +1,31 @@
+from __future__ import annotations
+import os
+from pathlib import Path
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Settings:
+    university_dir: Path
+    data_dir: Path
+
+    @property
+    def modules_path(self): return self.data_dir / "modules.json"
+    @property
+    def topics_path(self):  return self.data_dir / "topics.json"
+    @property
+    def assignments_path(self): return self.data_dir / "assignments.json"
+    @property
+    def tasks_path(self): return self.data_dir / "tasks.json"
+    @property
+    def events_path(self): return self.data_dir / "events.json"
+    @property
+    def state_path(self): return self.data_dir / "state.json"
+    @property
+    def notes_dir(self): return self.data_dir / "notes"
+
+def load_settings() -> Settings:
+    here = Path(__file__).resolve().parents[1]  # backend/
+    return Settings(
+        university_dir=Path(os.environ.get("UNI_DIR", str(Path.home() / "University"))),
+        data_dir=Path(os.environ.get("UNI_DATA_DIR", str(here / "data"))),
+    )
