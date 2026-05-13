@@ -1,0 +1,1 @@
+export default function Deadlines() { return <h1>Deadlines</h1> }

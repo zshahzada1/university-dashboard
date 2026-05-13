@@ -4,7 +4,7 @@ import { vi, beforeEach, it, expect } from 'vitest'
 beforeEach(() => { vi.restoreAllMocks() })
 
 it('patchTopic sends PATCH and returns json', async () => {
-  const spy = vi.spyOn(global, 'fetch').mockResolvedValue(new Response(
+  const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
     JSON.stringify({ id: 'x', title: 't', folder: 'f', week: 1, confidence: 4, updated_at: 'now' }),
     { status: 200, headers: { 'content-type': 'application/json' } }
   ))

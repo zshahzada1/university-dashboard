@@ -1,0 +1,1 @@
+export default function Module({ code }: { code: string }) { return <h1>Module {code}</h1> }

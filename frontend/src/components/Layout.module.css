@@ -1,0 +1,8 @@
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.side  { background: var(--bg-1); border-right: 1px solid var(--border); padding: 1.5rem 1rem; }
+.brand { font-family: var(--font-display); letter-spacing: 0.3em; color: var(--amber);
+         margin-bottom: 2rem; text-shadow: 0 0 8px rgba(255,182,39,0.4); }
+.link  { display: block; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.2em;
+         color: var(--text-2); padding: 0.5rem 0.75rem; text-decoration: none; }
+.link:hover { color: var(--amber); }
+.main  { padding: 2rem 2.5rem; }
