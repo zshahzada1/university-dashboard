@@ -1,0 +1,10 @@
+.row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 1rem;
+       padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; }
+.row.sel { background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent); }
+.wk    { font-family: var(--font-mono); color: var(--muted); }
+.title { font-size: 0.95rem; }
+.rate  { display: flex; gap: 0.25rem; }
+.r     { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2);
+         width: 28px; height: 28px; font-family: var(--font-mono); cursor: pointer; }
+.r.on  { background: var(--accent); color: var(--bg-0); }
+.r:hover { border-color: var(--accent); }
