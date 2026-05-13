@@ -1,6 +1,9 @@
 from pathlib import Path
 from fastapi.testclient import TestClient
 
+import pytest
+
+@pytest.mark.skip_isolate
 def test_health_and_seeds(tmp_path: Path, monkeypatch):
     uni = tmp_path / "uni"; uni.mkdir()
     monkeypatch.setenv("UNI_DIR", str(uni))
