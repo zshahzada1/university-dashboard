@@ -1,0 +1,10 @@
+.box  { background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--accent); padding: 1.25rem; }
+.head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem; }
+.code { font-family: var(--font-display); letter-spacing: 0.2em; color: var(--accent); text-decoration: none; font-size: 1.1rem; }
+.avg  { font-family: var(--font-mono); color: var(--text-2); }
+.barTrack { height: 4px; background: var(--bg-2); }
+.barFill  { height: 100%; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.weak { list-style: none; margin-top: 1rem; font-family: var(--font-mono); font-size: 0.8rem; }
+.weak li { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px dashed var(--border); }
+.weak li a { color: var(--text); text-decoration: none; }
+.empty { color: var(--muted); font-size: 0.75rem; }
