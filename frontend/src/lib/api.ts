@@ -1,9 +1,29 @@
-import type { Module, Topic, Assignment, Task, Event, SearchHit, TopicsByModule } from './types'
+import type { Module, Topic, Assignment, Task, Event, SearchHit, TopicsByModule, GradesResponse, SyncCourse, TreeNode } from './types'
 
 async function j<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
   if (r.status === 204) return undefined as T
   return r.json()
+}
+
+async function* _readSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const parts = buf.split('\n')
+    buf = parts.pop() ?? ''
+    for (const part of parts) {
+      if (part.startsWith('data: ')) yield part.slice(6)
+    }
+  }
+  const tail = buf + decoder.decode()
+  for (const part of tail.split('\n')) {
+    if (part.startsWith('data: ')) yield part.slice(6)
+  }
 }
 
 export const api = {
@@ -44,4 +64,22 @@ export const api = {
   dismiss: (date: string, topic_id: string) =>
     fetch('/api/state/dismiss', { method: 'POST', headers: { 'content-type': 'application/json' },
                                   body: JSON.stringify({ date, topic_id }) }).then(j<void>),
+
+  grades: () => fetch('/api/grades').then(j<GradesResponse>),
+
+  syncCourses: () => fetch('/api/sync/courses').then(j<SyncCourse[]>),
+
+  syncRun: async (modules: string[], mode: string, onLine: (line: string) => void): Promise<void> => {
+    const r = await fetch('/api/sync/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ modules, mode }),
+    })
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+    for await (const line of _readSSE(r.body!)) {
+      onLine(line)
+    }
+  },
+
+  fileTree: () => fetch('/api/files/tree').then(j<TreeNode[]>),
 }
