@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import { openFile } from '../lib/openFile'
 import type { SearchHit, Module } from '../lib/types'
 import s from './Resources.module.css'
 
@@ -31,7 +32,7 @@ export default function Resources() {
             <ul className={s.list}>
               {list.map(h => (
                 <li key={h.rel_path}>
-                  <button onClick={() => api.open(h.rel_path)}>{h.name}</button>
+                  <button onClick={() => openFile(h.rel_path)}>{h.name}</button>
                   <span className={s.path}>{h.rel_path}</span>
                 </li>
               ))}

@@ -25,6 +25,7 @@ export default function Deadlines() {
         {FILTERS.map(f => (
           <button key={f} className={`${s.chip} ${filter===f ? s.on : ''}`} onClick={() => setFilter(f)}>{f.toUpperCase()}</button>
         ))}
+        <button className={s.chip} onClick={refresh} title="Reload assignments">↺</button>
       </div>
       <div className={s.grid}>
         {view.map(a => {

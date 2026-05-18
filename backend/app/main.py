@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.settings import load_settings
 from app.services.seeding import ensure_seeded
-from app.routes import modules, topics, assignments, tasks, events, notes, files, search, open_file, state, grades, sync
+from app.routes import modules, topics, assignments, tasks, events, notes, files, search, open_file, state, grades, sync, serve
 
 settings = load_settings()
 
@@ -31,6 +31,7 @@ app.include_router(open_file.router)
 app.include_router(state.router)
 app.include_router(grades.router)
 app.include_router(sync.router)
+app.include_router(serve.router)
 
 @app.get("/api/health")
 def health(): return {"ok": True}

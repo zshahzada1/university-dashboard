@@ -20,4 +20,5 @@ def open_path(body: OpenIn):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "path outside university directory")
     if not target.exists():
         raise HTTPException(404, "not found")
-    subprocess.Popen(["xdg-open", str(target)], start_new_session=True)
+    win = subprocess.run(["wslpath", "-w", str(target)], capture_output=True, text=True).stdout.strip()
+    subprocess.Popen(["explorer.exe", win], start_new_session=True)
