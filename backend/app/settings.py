@@ -22,6 +22,10 @@ class Settings:
     def state_path(self): return self.data_dir / "state.json"
     @property
     def notes_dir(self): return self.data_dir / "notes"
+    @property
+    def assessments_path(self): return self.data_dir / "assessments.json"
+    @property
+    def grades_path(self): return self.data_dir / "grades.json"
 
 def load_settings() -> Settings:
     here = Path(__file__).resolve().parents[1]  # backend/
