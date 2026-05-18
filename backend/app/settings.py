@@ -37,10 +37,10 @@ def load_settings() -> Settings:
         data_dir=Path(os.environ.get("UNI_DATA_DIR", str(here / "data"))),
         bbsync_python=Path(os.environ.get(
             "BBSYNC_PYTHON",
-            str(home / "bb_sync_repo" / "scripts" / ".venv" / "bin" / "python"),
+            str(home / "University" / "dashboard" / "sync" / "scripts" / ".venv" / "bin" / "python"),
         )),
         bbsync_scripts_dir=Path(os.environ.get(
             "BBSYNC_SCRIPTS_DIR",
-            str(home / "bb_sync_repo" / "scripts"),
+            str(home / "University" / "dashboard" / "sync" / "scripts"),
         )),
     )

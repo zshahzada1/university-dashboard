@@ -9,3 +9,10 @@ frontend/dist/
 docs/superpowers/
 backend/uni_hub_backend.egg-info/
 backend/uv.lock
+sync/scripts/.venv/
+sync/scripts/__pycache__/
+sync/scripts/**/__pycache__/
+sync/scripts/.pytest_cache/
+sync/scripts/*.egg-info/
+sync/.env
+sync/.env.local
