@@ -1,0 +1,34 @@
+.node { font-family: var(--font-mono); font-size: 0.82rem; }
+
+.dir {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0.75rem; cursor: pointer; color: var(--text-2);
+  user-select: none;
+}
+.dir:hover { color: var(--amber); }
+
+.chevron { width: 0.7rem; display: inline-block; color: var(--muted); }
+
+.dirName { font-weight: 600; letter-spacing: 0.04em; }
+
+.count {
+  font-size: 0.7rem; color: var(--muted);
+  background: var(--bg-2); border-radius: 3px;
+  padding: 0 0.35rem; margin-left: auto;
+}
+
+.file {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.2rem 0.75rem;
+}
+
+.fileBtn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--text); font-family: var(--font-mono); font-size: 0.82rem;
+  text-align: left;
+}
+.fileBtn:hover { color: var(--teal); }
+
+.size { font-size: 0.7rem; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+.empty { color: var(--muted); font-size: 0.78rem; padding: 0.2rem 0.75rem; font-style: italic; }

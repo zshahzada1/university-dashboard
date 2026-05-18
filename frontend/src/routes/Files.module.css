@@ -1,0 +1,7 @@
+.h1 {
+  font-family: var(--font-display); letter-spacing: 0.3em;
+  font-size: 1.6rem; color: var(--amber); margin-bottom: 1.5rem;
+}
+.loading { color: var(--muted); font-family: var(--font-mono); font-size: 0.9rem; }
+.err     { color: var(--alert); font-family: var(--font-mono); font-size: 0.9rem; }
+.tree    { background: var(--bg-1); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0; }
