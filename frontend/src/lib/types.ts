@@ -13,3 +13,54 @@ export type Event = { id: string; title: string; date: string; time?: string|nul
                       module_code?: string|null; kind: 'exam'|'meeting'|'study_session'|'other' }
 export type SearchHit = { name: string; rel_path: string; module: string }
 export type TopicsByModule = Record<string, Topic[]>
+
+export type AssessmentGrade = {
+  title: string
+  weight_percent: number
+  score: number | null
+  status: 'graded' | 'ungraded' | 'unmapped'
+}
+
+export type ModuleGrade = {
+  name: string
+  credits: number
+  grade_so_far: number | null
+  classification: string | null
+  needed_for_first: number | null
+  first_status: 'possible' | 'secured' | 'impossible' | 'final'
+  weights_ok: boolean
+  assessments: AssessmentGrade[]
+  error?: string
+}
+
+export type OverallGrade = {
+  grade: number | null
+  classification: string | null
+  needed_for_first: number | null
+  first_status: 'possible' | 'secured' | 'impossible' | 'final'
+}
+
+export type GradesResponse = {
+  synced_at: string | null
+  overall: OverallGrade
+  excluded_modules: string[]
+  modules: Record<string, ModuleGrade>
+  error?: string
+}
+
+export type SyncCourse = { id: string; name: string; code: string | null }
+
+export type FileLeaf = {
+  name: string
+  type: 'file'
+  size: number
+  rel_path: string
+}
+
+export type DirNode = {
+  name: string
+  type: 'dir'
+  children: TreeNode[]
+}
+
+export type TreeNode = FileLeaf | DirNode

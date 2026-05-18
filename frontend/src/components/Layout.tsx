@@ -1,11 +1,16 @@
 import type { ReactNode } from 'react'
 import s from './Layout.module.css'
+
 const NAV = [
   ['#/',          'HOME'],
   ['#/planner',   'PLANNER'],
   ['#/deadlines', 'DEADLINES'],
   ['#/resources', 'RESOURCES'],
+  ['#/grades',    'GRADES'],
+  ['#/files',     'FILES'],
+  ['#/sync',      'SYNC'],
 ] as const
+
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className={s.shell}>

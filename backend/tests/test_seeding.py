@@ -3,7 +3,12 @@ from app.services.seeding import ensure_seeded
 from app.settings import Settings
 
 def _settings(uni: Path, data: Path) -> Settings:
-    return Settings(university_dir=uni, data_dir=data)
+    return Settings(
+        university_dir=uni,
+        data_dir=data,
+        bbsync_python=Path("/home/zozo/bb_sync_repo/scripts/.venv/bin/python"),
+        bbsync_scripts_dir=Path("/home/zozo/bb_sync_repo/scripts"),
+    )
 
 import pytest
 

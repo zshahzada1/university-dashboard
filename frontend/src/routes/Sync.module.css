@@ -1,0 +1,61 @@
+.h1 {
+  font-family: var(--font-display); letter-spacing: 0.3em;
+  font-size: 1.6rem; color: var(--amber); margin-bottom: 1.5rem;
+}
+
+.section { margin-bottom: 1.5rem; }
+
+.label {
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.15em;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 0.6rem;
+}
+
+.loading { color: var(--muted); font-family: var(--font-mono); font-size: 0.85rem; }
+.err     { color: var(--alert); font-family: var(--font-mono); font-size: 0.85rem; }
+
+.toggleRow {
+  display: flex; gap: 0.5rem; margin-bottom: 0.5rem;
+}
+.toggleBtn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-2); font-family: var(--font-mono); font-size: 0.75rem;
+  padding: 0.2rem 0.6rem; cursor: pointer;
+}
+.toggleBtn:hover { border-color: var(--amber); color: var(--amber); }
+
+.moduleGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.4rem;
+}
+
+.moduleRow {
+  display: flex; align-items: center; gap: 0.6rem;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: 4px; padding: 0.4rem 0.75rem; cursor: pointer;
+}
+.moduleRow:hover { border-color: var(--border-hot); }
+.moduleRow input { cursor: pointer; accent-color: var(--amber); }
+.code  { font-family: var(--font-mono); font-size: 0.8rem; color: var(--amber); min-width: 3.5rem; }
+.mname { font-size: 0.82rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.modeRow { display: flex; gap: 1.5rem; }
+.modeOpt { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.modeOpt input { accent-color: var(--amber); cursor: pointer; }
+.modeOpt span  { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-2); }
+
+.runBtn {
+  background: var(--amber); color: var(--bg-0); border: none; border-radius: 4px;
+  font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.1em;
+  padding: 0.5rem 2rem; cursor: pointer; font-weight: 700;
+}
+.runBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.runBtn:not(:disabled):hover { filter: brightness(1.15); }
+
+.terminal {
+  background: var(--bg-0); border: 1px solid var(--border); border-radius: 6px;
+  font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-2);
+  padding: 0.75rem 1rem; height: 320px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-all;
+  margin-top: 1rem;
+}
+.done   { color: var(--teal); }
+.failed { color: var(--alert); }
