@@ -32,6 +32,26 @@ def test_find_column_empty_name_returns_none():
 def test_find_column_no_match_returns_none():
     assert find_column("Exam", COLS) is None
 
+def test_find_column_prefers_graded_over_primary():
+    cols = [
+        {"name": "Task 2 (Analytical Essay) - Submission", "score": None,  "possible": 100.0},
+        {"name": "Task 2 (Analytical Essay) - Extension",  "score": 74.0, "possible": 100.0},
+        {"name": "Task 2 (Analytical Essay) - LSP",        "score": None,  "possible": 100.0},
+    ]
+    result = find_column("Task 2 (Analytical Essay)", cols)
+    assert result is not None
+    assert result["score"] == 74.0
+
+def test_find_column_returns_primary_when_all_ungraded():
+    cols = [
+        {"name": "Task 2 (Analytical Essay) - Submission", "score": None, "possible": 100.0},
+        {"name": "Task 2 (Analytical Essay) - Extension",  "score": None, "possible": 100.0},
+        {"name": "Task 2 (Analytical Essay) - LSP",        "score": None, "possible": 100.0},
+    ]
+    result = find_column("Task 2 (Analytical Essay)", cols)
+    assert result is not None
+    assert "Submission" in result["name"]
+
 # ── compute_module ───────────────────────────────────────────────────────────
 
 FA565_CFG = {

@@ -11,14 +11,23 @@ def classify(grade: float) -> str:
     return "Fail"
 
 
+_VARIANT_KEYWORDS = frozenset(("extension", "lsp", "referral", "deferral"))
+
+
 def find_column(column_name: str, columns: list[dict]) -> dict | None:
     if not column_name:
         return None
     needle = column_name.lower()
-    for col in columns:
-        if needle in col["name"].lower():
-            return col
-    return None
+    matches = [c for c in columns if needle in c["name"].lower()]
+    if not matches:
+        return None
+    # Prefer a column that already has a grade (handles extension/LSP submissions)
+    graded = [c for c in matches if c.get("score") is not None]
+    if graded:
+        return graded[0]
+    # Fall back to primary submission column (exclude extension/LSP/referral variants)
+    primary = [c for c in matches if not any(kw in c["name"].lower() for kw in _VARIANT_KEYWORDS)]
+    return primary[0] if primary else matches[0]
 
 
 def compute_module(module_cfg: dict, raw_columns: list[dict]) -> dict:
