@@ -1,13 +1,16 @@
-# university-blackboard-sync
+# bb_sync
 
-Syncs files from Blackboard Ultra to a local folder on WSL2. Extracts session cookies from a running Edge instance via Chrome DevTools Protocol (CDP) — no password needed after you log in once.
+Syncs files and grades from Blackboard Ultra to a local folder on WSL2. Extracts session cookies from a running Edge instance via Chrome DevTools Protocol (CDP) — no password needed after you log in once.
+
+The sync module lives at `sync/` inside the dashboard repo and is invoked by the dashboard backend's Sync page as well as directly from the terminal.
 
 ## How it works
 
 1. Reads Edge's session cookies via CDP (Edge must be open and logged into Blackboard)
 2. Walks the Blackboard content tree for each module using the REST API
-3. Downloads any files not already present locally
+3. Downloads any files not already present locally (streamed to a `.tmp` file, renamed on completion)
 4. Skips files that already exist — safe to re-run at any time
+5. Syncs grade columns for all modules and writes `backend/data/grades.json`
 
 ## Prerequisites
 
@@ -16,28 +19,29 @@ Syncs files from Blackboard Ultra to a local folder on WSL2. Extracts session co
 | WSL2 on Windows 10/11 | Tested on Ubuntu |
 | Microsoft Edge | Must be open and logged into Blackboard |
 | Python 3.8+ in WSL | `python3 --version` |
-| Python 3.x in Windows | Needed for CDP cookie extraction — install from [python.org](https://python.org) |
-| `requests` + `websocket-client` in **Windows** Python | `pip install requests websocket-client` |
 
 ## Installation
 
 ```bash
-git clone https://github.com/zshahzada1/university-blackboard-sync.git
-cd university-blackboard-sync
-pip3 install -r requirements.txt
+cd sync/scripts
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ## Configuration
 
-By default the script syncs to `~/University/<MODULE_CODE>/`. To change this, set environment variables before running:
+Settings are read from environment variables with defaults in `scripts/bb_sync/config.py`:
 
-```bash
-export BB_LOCAL_ROOT="$HOME/Documents/University"   # where to save files
-export BB_COOKIE_CACHE="$HOME/.cache/bb_sync/cookies.json"  # cookie cache location
-export BB_BASE_URL="https://studentcentral.brighton.ac.uk"  # your Blackboard URL
-```
+| Variable | Default | Purpose |
+|---|---|---|
+| `BB_BASE_URL` | `https://studentcentral.brighton.ac.uk` | Blackboard instance URL |
+| `BB_LOCAL_ROOT` | `~/University` | Root folder where course subfolders are created |
+| `BB_COOKIE_CACHE` | `~/.cache/bb_sync/cookies.json` | Cookie cache (valid 1 hour) |
+| `BB_ASSESSMENTS_PATH` | `dashboard/backend/data/assessments.json` | Assessment config for grade sync |
+| `BB_GRADES_PATH` | `dashboard/backend/data/grades.json` | Grade sync output |
 
-To change **which modules** are synced by default, edit `SYNC_MODULES` in `scripts/bb_sync/config.py`:
+To change which modules are synced by default, edit `SYNC_MODULES` in `scripts/bb_sync/config.py`:
 
 ```python
 SYNC_MODULES = {"FA565", "FN585", "FA583"}
@@ -45,64 +49,72 @@ SYNC_MODULES = {"FA565", "FN585", "FA583"}
 
 ## Usage
 
-**Sync specific modules (recommended):**
+**Sync specific modules (files + grades):**
 ```bash
-./sync.sh --modules FA565 FN585 FA583
+bash sync.sh --modules FA565 FN585 FA583
 ```
 
 **Sync all modules in the allowlist:**
 ```bash
-./sync.sh
+bash sync.sh
+```
+
+**Grades only (all modules, no file download):**
+```bash
+bash sync.sh --grades
 ```
 
 **Force re-extract cookies (if sync fails with auth errors):**
 ```bash
-./sync.sh --refresh-cookies --modules FA565 FN585 FA583
+bash sync.sh --refresh-cookies --modules FA565 FN585 FA583
 ```
 
-**List all enrolled courses:**
+**List enrolled courses as JSON:**
 ```bash
-./sync.sh --list-courses
+bash sync.sh --list-courses
 ```
 
-### Running without sync.sh
-
+**Without sync.sh:**
 ```bash
 cd scripts && python3 -m bb_sync --modules FA565 FN585 FA583
 ```
 
-## Troubleshooting
-
-**`CDP not ready within 20s`**
-Edge didn't start with the debug port. Make sure Edge is running, then try again. The script briefly closes and restarts Edge — don't click anything during that window.
-
-**`No Python found in Windows PATH`**
-Install Python from [python.org](https://python.org) and make sure it's on the Windows PATH. In a Windows terminal: `python --version`
-
-**`pip install requests websocket-client` (in Windows Python)**
-The CDP extraction script runs on Windows Python. Open PowerShell and run:
-```powershell
-pip install requests websocket-client
-```
-
-**Auth errors after a long time**
-Blackboard sessions expire. Open Edge, log in to Blackboard, then re-run with `--refresh-cookies`.
-
 ## File layout
 
 ```
-scripts/bb_sync/
-  __main__.py        — CLI entry point
-  bb_client.py       — Blackboard REST API client
-  config.py          — URLs, paths, module allowlist
-  cookie_extractor.py — Edge CDP cookie extraction
-  syncer.py          — content tree walker + file downloader
-  requirements.txt   — Python dependencies
-  test_*.py          — unit tests
+sync/
+  sync.sh                    — shell wrapper (activates .venv, runs bb_sync)
+  requirements.txt           — top-level deps (mirrors scripts/bb_sync/requirements.txt)
+  scripts/
+    bb_sync/
+      __main__.py            — CLI entry point, argument parsing
+      bb_client.py           — Blackboard REST API client (persistent requests.Session)
+      config.py              — URLs, paths, module allowlist
+      cookie_extractor.py    — Edge CDP cookie extraction (4 fallback methods)
+      grades.py              — GradeSyncer: fetches and writes grade columns
+      syncer.py              — content tree walker + atomic file downloader
+      test_bb_client.py      — unit tests for BlackboardClient
+      test_syncer.py         — unit tests for Syncer and download helpers
+      requirements.txt       — Python dependencies
 ```
 
 ## Running tests
 
 ```bash
-cd scripts/bb_sync && python3 -m unittest discover -v
+cd sync/scripts/bb_sync
+python3 -m unittest discover -v
 ```
+
+## Troubleshooting
+
+**`CDP not ready` / cookie extraction fails**
+Edge must be running with the remote-debug port open. The extractor tries four methods in order: WSL CDP, browser-harness, PowerShell CDP, cookie-editor JSON export. If all fail, open Edge, log in to Blackboard, then re-run with `--refresh-cookies`.
+
+**Auth errors after a long session**
+Blackboard sessions expire. Open Edge, log in to Blackboard, then:
+```bash
+bash sync.sh --refresh-cookies --modules FA565 FN585 FA583
+```
+
+**FA565 has few downloaded files**
+Expected — most FA565 content is inline HTML rather than file attachments. The syncer saves these as `.html` files and downloads any embedded attachment links it finds inside them.
