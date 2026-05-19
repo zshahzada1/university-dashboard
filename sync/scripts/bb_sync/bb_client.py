@@ -11,14 +11,17 @@ class BlackboardClient:
     def __init__(self, cookies: dict):
         self._cookies = cookies
         self._base = BB_BASE_URL.rstrip("/")
+        self._session = requests.Session()
+        self._session.cookies.update(cookies)
 
     def _get(self, path: str, params: dict = None) -> dict:
         url = f"{self._base}{path}"
-        with requests.Session() as s:
-            s.cookies.update(self._cookies)
-            resp = s.get(url, params=params or {}, allow_redirects=True, timeout=30)
-            resp.raise_for_status()
-            return resp.json()
+        resp = self._session.get(url, params=params or {}, allow_redirects=True, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+
+    def download_stream(self, url: str):
+        return self._session.get(url, stream=True, allow_redirects=True, timeout=60)
 
     def get_current_user(self) -> dict:
         return self._get("/learn/api/public/v1/users/me")
@@ -33,7 +36,6 @@ class BlackboardClient:
             avail = (enrollment.get("availability") or {}).get("available")
             if avail != "Yes":
                 continue
-            # Course details are nested under "course" when expanded
             course = enrollment.get("course", {})
             results.append({
                 "id": course.get("id") or enrollment.get("courseId", ""),

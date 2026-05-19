@@ -130,9 +130,10 @@ def compute_grades(assessments_cfg: dict, grades_raw: dict) -> dict:
         }
     else:
         eligible_credits = sum(c for _, c in eligible)
-        overall_grade = sum(g * c for g, c in eligible) / eligible_credits
+        weighted_sum = sum(g * c for g, c in eligible)
+        overall_grade = weighted_sum / eligible_credits
 
-        G_overall = sum(g * c for g, c in eligible) / total_nonerror_credits
+        G_overall = weighted_sum / total_nonerror_credits
         ungraded_credits = total_nonerror_credits - sum(c for _, c in eligible)
         R_overall = ungraded_credits / total_nonerror_credits if total_nonerror_credits else 0
 

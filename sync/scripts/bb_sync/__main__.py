@@ -1,4 +1,3 @@
-# ~/University/scripts/bb_sync/__main__.py
 import sys
 import json
 import argparse
@@ -11,6 +10,17 @@ from cookie_extractor import extract_bb_cookies
 from bb_client import BlackboardClient
 from syncer import Syncer
 from grades import GradeSyncer
+
+
+def _print_grade_result(result: dict, file=sys.stdout) -> None:
+    for code, data in result.items():
+        if code == "synced_at":
+            continue
+        if "error" in data:
+            print(f"  {code}: {data['error']}", file=file)
+        else:
+            graded = sum(1 for c in data.get("columns", []) if c["status"] == "graded")
+            print(f"  {code}: {graded}/{len(data.get('columns', []))} columns graded", file=file)
 
 
 def main():
@@ -87,18 +97,10 @@ def main():
         grades_path = Path(GRADES_PATH)
         grade_syncer = GradeSyncer(client, assessments_path, grades_path)
         result = grade_syncer.sync(user_id, modules=args.modules)
-        for code, data in result.items():
-            if code == "synced_at":
-                continue
-            if "error" in data:
-                print(f"  {code}: {data['error']}", file=out)
-            else:
-                graded = sum(1 for c in data.get("columns", []) if c["status"] == "graded")
-                print(f"  {code}: {graded}/{len(data.get('columns', []))} columns graded", file=out)
+        _print_grade_result(result, file=out)
         print(f"\nGrades written to {grades_path}", file=out)
         sys.exit(0)
 
-    # Determine filter set: explicit --modules overrides config allowlist
     modules_filter = set(args.modules) if args.modules else None
 
     print(f"Found {len(courses)} active course(s):")
@@ -135,15 +137,8 @@ def main():
         print("\nRunning grade sync…")
         grades_path = Path(GRADES_PATH)
         grade_syncer = GradeSyncer(client, assessments_path, grades_path)
-        result = grade_syncer.sync(user_id, modules=None)  # always sync all modules
-        for code, data in result.items():
-            if code == "synced_at":
-                continue
-            if "error" in data:
-                print(f"  {code}: {data['error']}")
-            else:
-                graded = sum(1 for c in data.get("columns", []) if c["status"] == "graded")
-                print(f"  {code}: {graded}/{len(data.get('columns', []))} columns graded")
+        result = grade_syncer.sync(user_id, modules=None)
+        _print_grade_result(result)
         print(f"Grades written to {grades_path}")
 
 

@@ -1,6 +1,5 @@
 import json
 import re
-import requests
 from html.parser import HTMLParser
 from pathlib import Path
 from bb_client import BlackboardClient
@@ -86,6 +85,19 @@ class Syncer:
             print(f"    [skip] {title}.html")
         self._download_inline_attachments(body, dest)
 
+    def _stream_to_file(self, url: str, dest_path: Path) -> None:
+        tmp = dest_path.with_suffix(dest_path.suffix + ".tmp")
+        try:
+            with self._client.download_stream(url) as resp:
+                resp.raise_for_status()
+                with open(tmp, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            tmp.rename(dest_path)
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            raise
+
     def _download_inline_attachments(self, body: str, dest: Path):
         parser = _AttachmentLinkParser()
         parser.feed(body)
@@ -96,19 +108,7 @@ class Syncer:
                 print(f"    [skip] {safe}")
                 continue
             print(f"    [download inline] {safe}")
-            tmp_path = dest_path.with_suffix(dest_path.suffix + ".tmp")
-            try:
-                with requests.Session() as s:
-                    s.cookies.update(self._client._cookies)
-                    with s.get(resource_url, stream=True, allow_redirects=True, timeout=60) as resp:
-                        resp.raise_for_status()
-                        with open(tmp_path, "wb") as f:
-                            for chunk in resp.iter_content(chunk_size=8192):
-                                f.write(chunk)
-                tmp_path.rename(dest_path)
-            except Exception:
-                tmp_path.unlink(missing_ok=True)
-                raise
+            self._stream_to_file(resource_url, dest_path)
 
     def _download_attachment(self, course_id: str, content_id: str,
                               attachment: dict, dest_dir: str):
@@ -119,16 +119,4 @@ class Syncer:
             return
         url = self._client.download_url(course_id, content_id, attachment["id"])
         print(f"    [download] {filename}")
-        tmp_path = dest_path.with_suffix(dest_path.suffix + ".tmp")
-        try:
-            with requests.Session() as s:
-                s.cookies.update(self._client._cookies)
-                with s.get(url, stream=True, allow_redirects=True, timeout=60) as resp:
-                    resp.raise_for_status()
-                    with open(tmp_path, "wb") as f:
-                        for chunk in resp.iter_content(chunk_size=8192):
-                            f.write(chunk)
-            tmp_path.rename(dest_path)
-        except Exception:
-            tmp_path.unlink(missing_ok=True)
-            raise
+        self._stream_to_file(url, dest_path)

@@ -112,6 +112,11 @@ _CDP_PS_CMD = (
 ).format(script=_CDP_SCRIPT_WIN)
 
 
+def _save_cookie_cache(cache: Path, cookies: dict) -> None:
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps(cookies))
+
+
 def _cdp_reachable(timeout: float = 3.0) -> bool:
     """Return True if Edge's CDP port is reachable on 127.0.0.1:9222."""
     try:
@@ -227,15 +232,8 @@ def _extract_via_browser_harness(domain: str) -> dict:
 
 
 def _find_powershell() -> str:
-    """Return the path to powershell.exe."""
-    candidates = [
-        "powershell.exe",
-        "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
-    ]
-    return next(
-        (p for p in candidates if Path(p).exists() or p == "powershell.exe"),
-        "powershell.exe",
-    )
+    full = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+    return full if Path(full).exists() else "powershell.exe"
 
 
 def _extract_via_cdp(domain: str) -> dict:
@@ -305,8 +303,7 @@ def extract_bb_cookies(force_refresh: bool = False) -> dict:
     try:
         print("    [wsl-cdp] Extracting cookies directly via CDP WebSocket…")
         cookies = _extract_via_wsl_cdp(domain)
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps(cookies))
+        _save_cookie_cache(cache, cookies)
         return cookies
     except RuntimeError as e:
         print(f"    [wsl-cdp] Failed: {e}")
@@ -315,8 +312,7 @@ def extract_bb_cookies(force_refresh: bool = False) -> dict:
     try:
         print("    [browser-harness] Extracting cookies via browser-harness…")
         cookies = _extract_via_browser_harness(domain)
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps(cookies))
+        _save_cookie_cache(cache, cookies)
         return cookies
     except RuntimeError as e:
         print(f"    [browser-harness] Failed: {e}")
@@ -326,8 +322,7 @@ def extract_bb_cookies(force_refresh: bool = False) -> dict:
     try:
         print("    [cdp] Extracting cookies via Chrome DevTools Protocol…")
         cookies = _extract_via_cdp(domain)
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps(cookies))
+        _save_cookie_cache(cache, cookies)
         return cookies
     except RuntimeError as e:
         print(f"    [cdp] CDP failed: {e}")
@@ -344,12 +339,10 @@ def extract_bb_cookies(force_refresh: bool = False) -> dict:
                 cookies = {c["name"]: c["value"] for c in raw if "name" in c and "value" in c}
             else:
                 cookies = raw
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(json.dumps(cookies))
+            _save_cookie_cache(cache, cookies)
             return cookies
         except (json.JSONDecodeError, OSError, KeyError) as e:
             print(f"    [cookie-editor] Skipping malformed export file: {e}")
-            # fall through to browser_cookie3
 
     # --- Method 5: browser_cookie3 via Windows Python (legacy, broken on Edge 127+) ---
     powershell = _find_powershell()
@@ -374,6 +367,5 @@ def extract_bb_cookies(force_refresh: bool = False) -> dict:
         )
 
     cookies = json.loads(result.stdout.strip())
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps(cookies))
+    _save_cookie_cache(cache, cookies)
     return cookies
