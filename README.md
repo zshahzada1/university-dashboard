@@ -1,6 +1,6 @@
 # Uni Hub Dashboard
 
-Local study hub for tracking grades, deadlines, files, tasks, notes, and topic confidence across six MSc modules: **FA565, FN585, FA583, FN581, MA583, LW570**.
+Local study hub for tracking grades, deadlines, files, tasks, notes, and topic confidence across all Blackboard modules.
 
 ## Architecture
 
