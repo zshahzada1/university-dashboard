@@ -6,7 +6,6 @@ backend/.pytest_cache/
 frontend/node_modules/
 frontend/dist/
 .DS_Store
-docs/superpowers/
 backend/uni_hub_backend.egg-info/
 backend/uv.lock
 sync/scripts/.venv/
