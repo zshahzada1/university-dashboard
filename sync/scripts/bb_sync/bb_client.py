@@ -41,6 +41,7 @@ class BlackboardClient:
                 "id": course.get("id") or enrollment.get("courseId", ""),
                 "name": course.get("name", ""),
                 "courseId": course.get("courseId", ""),
+                "term_id": course.get("termId") or enrollment.get("termId") or "",
             })
         return results
 

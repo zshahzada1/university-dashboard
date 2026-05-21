@@ -1,9 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import type { SyncCourse } from '../lib/types'
 import s from './Sync.module.css'
 
 type Mode = 'all' | 'files' | 'grades'
+
+function detectCurrentYearCodes(courses: SyncCourse[]): Set<string> {
+  // Strategy 1: group by term_id, pick the term with the most coded courses
+  const termCounts: Record<string, string[]> = {}
+  for (const c of courses) {
+    if (c.code && c.term_id) {
+      termCounts[c.term_id] ??= []
+      termCounts[c.term_id].push(c.code)
+    }
+  }
+  const byTermSize = Object.entries(termCounts).sort(([, a], [, b]) => b.length - a.length)
+  if (byTermSize.length > 0) return new Set(byTermSize[0][1])
+
+  // Strategy 2: match current UK academic year pattern in course name (e.g. "2025/26")
+  const now = new Date()
+  const yr = now.getFullYear()
+  const m = now.getMonth() + 1
+  const startYr = m >= 9 ? yr : yr - 1
+  const pattern = new RegExp(`${startYr}[/\\-]${String(startYr + 1).slice(2)}`, 'i')
+  const byName = courses.filter(c => c.code && pattern.test(c.name)).map(c => c.code!)
+  if (byName.length > 0) return new Set(byName)
+
+  // Fallback: all courses with codes
+  return new Set(courses.filter(c => c.code).map(c => c.code!))
+}
 
 export default function Sync() {
   const [courses, setCourses]   = useState<SyncCourse[] | null>(null)
@@ -18,7 +43,7 @@ export default function Sync() {
     api.syncCourses()
       .then(cs => {
         setCourses(cs)
-        setSelected(new Set(cs.filter(c => c.code).map(c => c.code!)))
+        setSelected(detectCurrentYearCodes(cs))
       })
       .catch(e => setFetchErr(String(e)))
   }, [])
@@ -27,11 +52,20 @@ export default function Sync() {
     if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight
   }, [lines])
 
+  // Deduplicated list of selectable codes — avoids Set/array length mismatch
+  const allCodes = useMemo(
+    () => [...new Set((courses ?? []).filter(c => c.code).map(c => c.code!))],
+    [courses]
+  )
+
   function toggleAll() {
+    if (selected.size === allCodes.length) setSelected(new Set())
+    else setSelected(new Set(allCodes))
+  }
+
+  function selectCurrentYear() {
     if (!courses) return
-    const codes = courses.filter(c => c.code).map(c => c.code!)
-    if (selected.size === codes.length) setSelected(new Set())
-    else setSelected(new Set(codes))
+    setSelected(detectCurrentYearCodes(courses))
   }
 
   function toggleOne(code: string) {
@@ -46,7 +80,7 @@ export default function Sync() {
     if (!courses) return
     setRunning(true)
     setLines([])
-    const mods = courses.filter(c => c.code && selected.has(c.code!)).map(c => c.code!)
+    const mods = courses.filter(c => c.code && selected.has(c.code)).map(c => c.code!)
     try {
       await api.syncRun(mods, mode, line => {
         if (line.startsWith('__exit__:')) {
@@ -66,13 +100,12 @@ export default function Sync() {
     }
   }
 
-  const allCodes = courses?.filter(c => c.code).map(c => c.code!) ?? []
   const noneSelected = selected.size === 0 && mode !== 'grades'
   const canRun = !running && !!courses && !noneSelected
 
   return (
     <>
-      <h1 className={s.h1}>SYNC</h1>
+      <h1 className={s.h1}>Sync</h1>
 
       <div className={s.section}>
         <div className={s.label}>Modules</div>
@@ -83,6 +116,9 @@ export default function Sync() {
             <div className={s.toggleRow}>
               <button className={s.toggleBtn} onClick={toggleAll}>
                 {selected.size === allCodes.length ? 'Deselect all' : 'Select all'}
+              </button>
+              <button className={s.toggleBtn} onClick={selectCurrentYear}>
+                This year
               </button>
             </div>
             <div className={s.moduleGrid}>

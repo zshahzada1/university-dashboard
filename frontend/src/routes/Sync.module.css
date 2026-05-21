@@ -1,6 +1,6 @@
 .h1 {
-  font-family: var(--font-display); letter-spacing: 0.3em;
-  font-size: 1.6rem; color: var(--amber); margin-bottom: 1.5rem;
+  font: 600 40px/1.1 var(--font-display);
+  letter-spacing: -0.01em; color: var(--ink); margin-bottom: 32px;
 }
 
 .section { margin-bottom: 1.5rem; }

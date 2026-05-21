@@ -4,9 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>tmp-vite</title>
-    <script type="module" crossorigin src="/assets/index-OYapWuiN.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Bw-VoPpX.css">
+    <title>Uni Hub</title>
+    <script>
+      (function () {
+        var s = localStorage.getItem('uni-hub-theme');
+        var d = s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (d) document.documentElement.dataset.theme = 'dark';
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-CUaUohqB.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Cl6cCF3l.css">
   </head>
   <body>
     <div id="root"></div>

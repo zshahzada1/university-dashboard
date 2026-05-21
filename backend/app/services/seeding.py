@@ -5,9 +5,9 @@ from app.services.folder_scan import scan_module_topics
 from app.settings import Settings
 
 DEFAULT_MODULES = [
-    {"code": "FA583", "name": "Financial Accounting and Reporting", "color": "#ff2a6d", "folder": "FA583"},
-    {"code": "FN585", "name": "Financial Modelling and Dealing",    "color": "#05d9e8", "folder": "FN585"},
-    {"code": "FA565", "name": "Business Ethics and Corp Governance","color": "#b026ff", "folder": "FA565"},
+    {"code": "FA583", "name": "Financial Accounting and Reporting", "color": "#2F5040", "folder": "FA583"},
+    {"code": "FN585", "name": "Financial Modelling and Dealing",    "color": "#5E2D44", "folder": "FN585"},
+    {"code": "FA565", "name": "Business Ethics and Corp Governance","color": "#2C4E80", "folder": "FA565"},
 ]
 
 DEFAULT_ASSIGNMENTS = [

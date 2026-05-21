@@ -1,6 +1,6 @@
 .row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 1rem;
        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; }
-.row.sel { background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent); }
+.row.sel { background: var(--brand-tint); border-left: 2px solid var(--accent); }
 .wk    { font-family: var(--font-mono); color: var(--muted); }
 .title { font-size: 0.95rem; }
 .rate  { display: flex; gap: 0.25rem; }

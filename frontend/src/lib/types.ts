@@ -48,7 +48,7 @@ export type GradesResponse = {
   error?: string
 }
 
-export type SyncCourse = { id: string; name: string; code: string | null }
+export type SyncCourse = { id: string; name: string; code: string | null; term_id?: string | null }
 
 export type FileLeaf = {
   name: string

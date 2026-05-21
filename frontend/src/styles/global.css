@@ -1,19 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@500;600;700&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--bg-0);
-  color: var(--text);
-  font-family: var(--font-body);
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: var(--font-sans);
   min-height: 100vh;
-  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-body::after {
-  content: '';
-  position: fixed; inset: 0; pointer-events: none;
-  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 3px);
-  z-index: 1000;
-  mix-blend-mode: overlay;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

@@ -31,7 +31,13 @@ def get_courses():
     except subprocess.TimeoutExpired:
         raise HTTPException(500, detail="Course fetch timed out (30s). Is Edge open and logged in?")
     if result.returncode != 0:
-        msg = result.stderr.strip() or "bb_sync --list-courses failed"
+        # stderr contains status lines + "ERROR: ..." — surface only the error
+        error_lines = [
+            ln.removeprefix("ERROR:").strip()
+            for ln in result.stderr.splitlines()
+            if ln.startswith("ERROR:")
+        ]
+        msg = " ".join(error_lines) if error_lines else (result.stderr.strip() or "bb_sync --list-courses failed")
         raise HTTPException(500, detail=msg)
     try:
         return json.loads(result.stdout)

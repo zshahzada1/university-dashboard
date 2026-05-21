@@ -70,8 +70,8 @@ def find_browsers() -> list[tuple[str, str]]:
 
 def launch_browser(path: str) -> None:
     subprocess.Popen(
-        [path, "--remote-debugging-port=9222", "--no-first-run",
-         "--no-default-browser-check", "about:blank"],
+        [path, "--remote-debugging-port=9222", "--remote-allow-origins=http://127.0.0.1:9222",
+         "--no-first-run", "--no-default-browser-check", "about:blank"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -86,11 +86,36 @@ def _wait_for_cdp(timeout: float = 20.0) -> bool:
     return False
 
 
+def _open_url_in_browser(port: int, url: str) -> None:
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/json/new?{url}", timeout=5)
+    except Exception:
+        pass
+
+
+def _wait_for_login(domain: str, port: int, timeout: float = 120.0) -> bool:
+    """Poll until cookies for domain appear in the browser. Returns True when found."""
+    from cookie_extractor import _extract_via_cdp
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            if _extract_via_cdp(domain, port):
+                return True
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
+
+
 def run_wizard() -> None:
     """
-    Terminal wizard: detect browsers, prompt user to pick one, launch it,
-    wait for Blackboard login. Exits the process if setup cannot complete.
+    Terminal wizard: detect browsers, launch one with remote debugging,
+    open Blackboard, and wait for login automatically.
+    Exits the process if setup cannot complete.
     """
+    from urllib.parse import urlparse
+    from config import BB_BASE_URL
+
     print()
     print("No browser debug port found. Let's open one for you.")
     print()
@@ -106,21 +131,24 @@ def run_wizard() -> None:
         print("Then re-run:  uv run start.py")
         sys.exit(1)
 
-    print("Detected browsers:")
-    for i, (name, _) in enumerate(browsers, 1):
-        print(f"  [{i}] {name}")
-    print()
+    if len(browsers) == 1:
+        name, path = browsers[0]
+        print(f"Detected: {name}")
+    else:
+        print("Detected browsers:")
+        for i, (name, _) in enumerate(browsers, 1):
+            print(f"  [{i}] {name}")
+        print()
+        try:
+            raw = input("Pick a browser [1]: ").strip() or "1"
+            idx = int(raw) - 1
+            if not (0 <= idx < len(browsers)):
+                raise ValueError
+        except (ValueError, EOFError):
+            print("Invalid choice — using option 1.")
+            idx = 0
+        name, path = browsers[idx]
 
-    try:
-        raw = input("Pick a browser [1]: ").strip() or "1"
-        idx = int(raw) - 1
-        if not (0 <= idx < len(browsers)):
-            raise ValueError
-    except (ValueError, EOFError):
-        print("Invalid choice — using option 1.")
-        idx = 0
-
-    name, path = browsers[idx]
     print(f"Launching {name} with remote debugging...")
     launch_browser(path)
 
@@ -130,6 +158,17 @@ def run_wizard() -> None:
         print("Try starting it manually with --remote-debugging-port=9222 and re-run.")
         sys.exit(1)
 
-    print()
-    input("Log in to Blackboard in the browser window, then press Enter to continue: ")
-    print()
+    print(f"Opening {BB_BASE_URL}...")
+    _open_url_in_browser(9222, BB_BASE_URL)
+
+    domain = urlparse(BB_BASE_URL).netloc
+    print("Please log in to Blackboard in the browser window.", flush=True)
+    print("Waiting for login", end="", flush=True)
+
+    if _wait_for_login(domain, 9222):
+        print(" ✓")
+        print()
+    else:
+        print()
+        print("Timed out waiting for Blackboard login. Please log in and re-run.")
+        sys.exit(1)

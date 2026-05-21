@@ -123,14 +123,14 @@ export default function Grades() {
   if (!data) return <div className={s.loading}>Loading grades…</div>
   if (data.error) return (
     <>
-      <h1 className={s.h1}>GRADES</h1>
+      <h1 className={s.h1}>Grades</h1>
       <div className={s.err}>{data.error}</div>
     </>
   )
 
   return (
     <>
-      <h1 className={s.h1}>GRADES</h1>
+      <h1 className={s.h1}>Grades</h1>
       <OverallCard overall={data.overall} synced_at={data.synced_at} />
       {data.excluded_modules.length > 0 && (
         <div className={s.excluded}>Excluded (no access): {data.excluded_modules.join(', ')}</div>

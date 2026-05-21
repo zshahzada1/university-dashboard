@@ -45,7 +45,7 @@ export default function Planner() {
 
   return (
     <>
-      <h1 className={s.h1}>PLANNER</h1>
+      <h1 className={s.h1}>Planner</h1>
       <QuickCapture onAdded={refresh} />
 
       <section className={s.sec}>

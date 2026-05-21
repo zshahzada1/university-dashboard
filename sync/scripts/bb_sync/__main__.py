@@ -45,8 +45,6 @@ def main():
         cookies = extract_bb_cookies(force_refresh=args.refresh_cookies)
     except RuntimeError as e:
         print(f"ERROR: {e}", file=out)
-        print("\nFix: open Windows PowerShell and run: py -m pip install requests websocket-client", file=out)
-        print("Also make sure you are logged in to Blackboard in Edge.", file=out)
         sys.exit(1)
 
     client = BlackboardClient(cookies)
@@ -83,6 +81,7 @@ def main():
                 "id": c["id"],
                 "name": name,
                 "code": match.group(1) if match else None,
+                "term_id": c.get("term_id", ""),
             })
         print(json.dumps(result))
         sys.exit(0)

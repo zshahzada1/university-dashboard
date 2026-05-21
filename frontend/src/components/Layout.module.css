@@ -1,8 +1,105 @@
-.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
-.side  { background: var(--bg-1); border-right: 1px solid var(--border); padding: 1.5rem 1rem; }
-.brand { font-family: var(--font-display); letter-spacing: 0.3em; color: var(--amber);
-         margin-bottom: 2rem; text-shadow: 0 0 8px rgba(255,182,39,0.4); }
-.link  { display: block; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.2em;
-         color: var(--text-2); padding: 0.5rem 0.75rem; text-decoration: none; }
-.link:hover { color: var(--amber); }
-.main  { padding: 2rem 2.5rem; }
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar) 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.side {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  background: var(--parchment);
+  border-right: 1px solid var(--rule-warm);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.brandMark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  background: var(--ink-surface);
+  display: grid;
+  place-items: center;
+  color: var(--on-ink);
+  font: 600 16px/1 var(--font-display);
+  flex-shrink: 0;
+}
+
+.brandName {
+  font: 600 17px/1 var(--font-display);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.brandAccent {
+  color: var(--brand);
+}
+
+/* ── Nav links ────────────────────────────────────────── */
+nav { display: flex; flex-direction: column; gap: 2px; }
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  color: var(--ink-2);
+  font: 500 13.5px/1 var(--font-sans);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  letter-spacing: 0;
+}
+
+.link:hover {
+  background: var(--hover-bg);
+  color: var(--ink);
+}
+
+.link.active {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+/* ── Theme toggle ─────────────────────────────────────── */
+.spacer { flex: 1; }
+
+.themeToggle {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  color: var(--slate);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  align-self: flex-start;
+}
+.themeToggle:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* ── Main content ─────────────────────────────────────── */
+.main {
+  padding: 32px 40px 80px;
+  max-width: var(--content-max);
+  width: 100%;
+}

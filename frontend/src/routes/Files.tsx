@@ -14,7 +14,7 @@ export default function Files() {
 
   return (
     <>
-      <h1 className={s.h1}>FILES</h1>
+      <h1 className={s.h1}>Files</h1>
       {!tree && !err && <div className={s.loading}>Scanning…</div>}
       {err && <div className={s.err}>{err}</div>}
       {tree && <div className={s.tree}><FileTree nodes={tree} /></div>}

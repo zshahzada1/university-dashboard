@@ -1,12 +1,12 @@
-.h1 { font-family: var(--font-display); font-size: 2.5rem; color: var(--amber); letter-spacing: 0.08em; margin-bottom: 1.5rem; }
+.h1 { font: 600 40px/1.1 var(--font-display); color: var(--ink); letter-spacing: -0.01em; margin-bottom: 32px; }
 
 /* ── Overall card ────────────────────────────────────────── */
-.overallCard  { display: flex; gap: 2rem; align-items: center; background: var(--surface);
-                border: 1px solid var(--border); border-left: 4px solid var(--amber);
-                padding: 1.5rem 2rem; margin-bottom: 2rem; }
+.overallCard  { display: flex; gap: 2rem; align-items: center; background: var(--paper);
+                border: 1px solid var(--rule); border-top: 3px solid var(--brand);
+                border-radius: var(--r-md); padding: 24px 32px; margin-bottom: 32px;
+                box-shadow: var(--shadow-1); }
 .overallLeft  { flex-shrink: 0; }
-.overallGrade { font-family: var(--font-display); font-size: 3.5rem; color: var(--amber);
-                line-height: 1; letter-spacing: 0.04em; }
+.overallGrade { font: 600 56px/1 var(--font-display); color: var(--ink); letter-spacing: -0.02em; }
 .cls     { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.15em; margin-top: 0.2rem; }
 .overallRight { flex: 1; }
 .overallLbl   { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.25em;
@@ -15,8 +15,9 @@
 
 /* ── Module grid ─────────────────────────────────────────── */
 .grid    { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.25rem; }
-.modCard { background: var(--surface); border: 1px solid var(--border);
-           border-left: 4px solid var(--teal); padding: 1.25rem; }
+.modCard { background: var(--paper); border: 1px solid var(--rule);
+           border-top: 2px solid var(--teal); border-radius: var(--r-md);
+           padding: 20px 24px; box-shadow: var(--shadow-1); }
 .modHead { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.85rem; }
 .code    { font-family: var(--font-mono); font-size: 0.7rem; color: var(--teal);
            border: 1px solid color-mix(in srgb, var(--teal) 50%, transparent); padding: 0.15rem 0.4rem;
@@ -36,15 +37,15 @@
 
 
 /* Score badges */
-.graded   { font-family: var(--font-mono); font-size: 0.82rem; color: var(--amber); }
+.graded   { font-family: var(--font-mono); font-size: 0.82rem; color: var(--moss); }
 .ungraded { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); }
 .unmapped { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em;
             color: var(--muted); border: 1px dashed var(--border); padding: 0.1rem 0.3rem; }
 
 .statusBadge { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; }
 .statusBadge.upcoming  { color: var(--muted); }
-.statusBadge.submitted { color: var(--teal); }
-.statusBadge.graded    { color: var(--amber); }
+.statusBadge.submitted { color: var(--lapis); }
+.statusBadge.graded    { color: var(--moss); }
 
 /* ── Module footer ───────────────────────────────────────── */
 .modFoot { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;
@@ -54,17 +55,17 @@
 .lbl { font-size: 0.58rem; letter-spacing: 0.2em; color: var(--muted); }
 
 /* ── Classification colours ──────────────────────────────── */
-.first  { color: var(--amber); }
-.twoOne { color: var(--teal); }
-.twoTwo { color: var(--purple); }
-.third  { color: var(--text-2); }
-.fail   { color: var(--maroon); }
+.first  { color: var(--moss); }
+.twoOne { color: var(--lapis); }
+.twoTwo { color: var(--ochre); }
+.third  { color: var(--slate); }
+.fail   { color: var(--alert); }
 
 /* ── First status ────────────────────────────────────────── */
-.secured    { color: var(--teal); }
-.needed     { color: var(--text-2); }
-.impossible { color: var(--maroon); }
-.warn { font-family: var(--font-mono); font-size: 0.62rem; color: var(--maroon); }
+.secured    { color: var(--moss); }
+.needed     { color: var(--slate); }
+.impossible { color: var(--alert); }
+.warn { font-family: var(--font-mono); font-size: 0.62rem; color: var(--alert); }
 
 /* ── Misc ────────────────────────────────────────────────── */
 .errMsg   { color: var(--maroon); font-size: 0.85rem; }

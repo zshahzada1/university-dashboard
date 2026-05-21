@@ -1,7 +1,11 @@
 import type { Module, Topic, Assignment, Task, Event, SearchHit, TopicsByModule, GradesResponse, SyncCourse, TreeNode } from './types'
 
 async function j<T>(r: Response): Promise<T> {
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) {
+    let msg = `${r.status} ${r.statusText}`
+    try { const b = await r.json(); if (b?.detail) msg = String(b.detail) } catch { /* keep default */ }
+    throw new Error(msg)
+  }
   if (r.status === 204) return undefined as T
   return r.json()
 }

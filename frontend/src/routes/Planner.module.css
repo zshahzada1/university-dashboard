@@ -1,5 +1,5 @@
-.h1  { font-family: var(--font-display); font-size: 2.5rem; letter-spacing: 0.08em; color: var(--amber); margin-bottom: 1.5rem; }
-.h2  { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.3em; color: var(--text-2); margin-bottom: 0.75rem; }
+.h1  { font: 600 40px/1.1 var(--font-display); letter-spacing: -0.01em; color: var(--ink); margin-bottom: 32px; }
+.h2  { font: 500 11px/1 var(--font-mono); letter-spacing: 0.12em; color: var(--slate); margin-bottom: 12px; text-transform: uppercase; }
 .sec { margin-bottom: 2.5rem; }
 .empty { color: var(--muted); font-size: 0.85rem; }
 .sugg { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem;
