@@ -14,6 +14,16 @@ def classify(grade: float) -> str:
 _VARIANT_KEYWORDS = frozenset(("extension", "lsp", "referral", "deferral"))
 
 
+def derive_status(score: float | None, bb_status: str | None, override: str | None = None) -> str:
+    if score is not None:
+        return "graded"
+    if override == "submitted":
+        return "submitted"
+    if bb_status == "NeedsGrading":
+        return "submitted"
+    return "upcoming"
+
+
 def find_column(column_name: str, columns: list[dict]) -> dict | None:
     if not column_name:
         return None
@@ -21,16 +31,20 @@ def find_column(column_name: str, columns: list[dict]) -> dict | None:
     matches = [c for c in columns if needle in c["name"].lower()]
     if not matches:
         return None
-    # Prefer a column that already has a grade (handles extension/LSP submissions)
+    # Prefer a column that already has a grade
     graded = [c for c in matches if c.get("score") is not None]
     if graded:
         return graded[0]
+    # Then prefer a column that has been submitted
+    submitted = [c for c in matches if c.get("bb_status") == "NeedsGrading"]
+    if submitted:
+        return submitted[0]
     # Fall back to primary submission column (exclude extension/LSP/referral variants)
     primary = [c for c in matches if not any(kw in c["name"].lower() for kw in _VARIANT_KEYWORDS)]
     return primary[0] if primary else matches[0]
 
 
-def compute_module(module_cfg: dict, raw_columns: list[dict]) -> dict:
+def compute_module(module_cfg: dict, raw_columns: list[dict], overrides: dict | None = None) -> dict:
     assessments_cfg = module_cfg["assessments"]
     weights_sum = sum(a["weight_percent"] for a in assessments_cfg)
 
@@ -46,14 +60,14 @@ def compute_module(module_cfg: dict, raw_columns: list[dict]) -> dict:
                 "score": None, "status": "unmapped",
             })
             continue
+
         col = find_column(a["column_name"], raw_columns)
-        if col is None or col.get("score") is None:
-            assessments_out.append({
-                "title": a["title"], "weight_percent": a["weight_percent"],
-                "score": None, "status": "ungraded",
-            })
-            ungraded_weight += w_frac
-        else:
+        score = col.get("score") if col else None
+        bb_status = col.get("bb_status") if col else None
+        override = (overrides or {}).get(a["weight_percent"])
+        status = derive_status(score, bb_status, override)
+
+        if status == "graded":
             possible = col.get("possible") or 100.0
             mark = col["score"] / possible * 100
             assessments_out.append({
@@ -61,6 +75,12 @@ def compute_module(module_cfg: dict, raw_columns: list[dict]) -> dict:
                 "score": round(mark, 1), "status": "graded",
             })
             graded_items.append((mark, w_frac))
+        else:
+            assessments_out.append({
+                "title": a["title"], "weight_percent": a["weight_percent"],
+                "score": None, "status": status,
+            })
+            ungraded_weight += w_frac
 
     if not graded_items:
         return {
@@ -104,12 +124,13 @@ def compute_module(module_cfg: dict, raw_columns: list[dict]) -> dict:
     }
 
 
-def compute_grades(assessments_cfg: dict, grades_raw: dict) -> dict:
+def compute_grades(assessments_cfg: dict, grades_raw: dict, overrides: dict | None = None) -> dict:
     synced_at = grades_raw.get("synced_at")
     modules_out: dict = {}
     excluded: list[str] = []
     eligible: list[tuple[float, int]] = []   # (grade_so_far, credits)
     total_nonerror_credits = 0
+    overrides = overrides or {}
 
     for code, mcfg in assessments_cfg.items():
         raw = grades_raw.get(code, {})
@@ -118,7 +139,7 @@ def compute_grades(assessments_cfg: dict, grades_raw: dict) -> dict:
             excluded.append(code)
             continue
         total_nonerror_credits += mcfg["credits"]
-        mod = compute_module(mcfg, raw.get("columns", []))
+        mod = compute_module(mcfg, raw.get("columns", []), overrides.get(code))
         modules_out[code] = mod
         if mod["grade_so_far"] is not None:
             eligible.append((mod["grade_so_far"], mcfg["credits"]))
@@ -167,11 +188,19 @@ def compute_grades(assessments_cfg: dict, grades_raw: dict) -> dict:
     }
 
 
-def load_and_compute(assessments_path: Path, grades_path: Path) -> dict:
+def load_and_compute(assessments_path: Path, grades_path: Path, assignments_path: Path | None = None) -> dict:
     if not assessments_path.exists():
         return {"error": "assessments.json not found — run setup first"}
     if not grades_path.exists():
         return {"error": "grades.json not found — run: python3 -m bb_sync --grades"}
     assessments = json.loads(assessments_path.read_text())
     grades_raw = json.loads(grades_path.read_text())
-    return compute_grades(assessments, grades_raw)
+
+    overrides: dict[str, dict] = {}
+    if assignments_path and assignments_path.exists():
+        assignments = json.loads(assignments_path.read_text())
+        for asg in assignments:
+            if asg.get("status_override"):
+                overrides.setdefault(asg["module_code"], {})[asg["weighting_percent"]] = asg["status_override"]
+
+    return compute_grades(assessments, grades_raw, overrides if overrides else None)

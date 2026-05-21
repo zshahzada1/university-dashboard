@@ -1,7 +1,7 @@
 import json, pytest
 from pathlib import Path
 from app.services.grades import (
-    classify, find_column, compute_module, compute_grades
+    classify, find_column, compute_module, compute_grades, derive_status
 )
 
 # ── classify ────────────────────────────────────────────────────────────────
@@ -178,3 +178,57 @@ def test_compute_grades_credit_weighted_overall():
     # FA565 grade_so_far=68, FN585 grade_so_far=80
     # overall = (68*20 + 80*40) / (20+40) = (1360+3200)/60 = 4560/60 = 76.0
     assert abs(result["overall"]["grade"] - 76.0) < 0.1
+
+# ── derive_status ────────────────────────────────────────────────────────────
+
+def test_derive_status_graded_when_score():
+    assert derive_status(72.0, "Graded") == "graded"
+
+def test_derive_status_submitted_when_needs_grading():
+    assert derive_status(None, "NeedsGrading") == "submitted"
+
+def test_derive_status_upcoming_when_not_attempted():
+    assert derive_status(None, "NotAttempted") == "upcoming"
+
+def test_derive_status_upcoming_when_no_status():
+    assert derive_status(None, None) == "upcoming"
+
+def test_derive_status_override_submitted():
+    assert derive_status(None, None, override="submitted") == "submitted"
+
+def test_derive_status_score_beats_override():
+    assert derive_status(80.0, "Graded", override="submitted") == "graded"
+
+def test_submitted_status_in_assessment_output():
+    cols = [
+        {"name": "Task 1 - Group Presentation", "score": None, "possible": 100.0,
+         "status": "ungraded", "bb_status": "NeedsGrading"},
+        {"name": "Task 2 - Analytical Essay", "score": None, "possible": 100.0,
+         "status": "ungraded", "bb_status": "NotAttempted"},
+    ]
+    result = compute_module(FA565_CFG, cols)
+    statuses = {a["title"]: a["status"] for a in result["assessments"]}
+    assert statuses["Task 1"] == "submitted"
+    assert statuses["Task 2"] == "upcoming"
+
+def test_override_submitted_in_assessment_output():
+    cols = [
+        {"name": "Task 1 - Group Presentation", "score": None, "possible": 100.0,
+         "status": "ungraded", "bb_status": None},
+        {"name": "Task 2 - Analytical Essay", "score": None, "possible": 100.0,
+         "status": "ungraded", "bb_status": None},
+    ]
+    result = compute_module(FA565_CFG, cols, overrides={40: "submitted"})
+    statuses = {a["title"]: a["status"] for a in result["assessments"]}
+    assert statuses["Task 1"] == "submitted"
+    assert statuses["Task 2"] == "upcoming"
+
+def test_find_column_prefers_submitted_over_upcoming():
+    cols = [
+        {"name": "Task 1 - Submission", "score": None, "possible": 100.0,
+         "status": "ungraded", "bb_status": "NeedsGrading"},
+        {"name": "Task 1 - Extension", "score": None, "possible": 100.0,
+         "status": "ungraded", "bb_status": "NotAttempted"},
+    ]
+    result = find_column("Task 1", cols)
+    assert result["bb_status"] == "NeedsGrading"
