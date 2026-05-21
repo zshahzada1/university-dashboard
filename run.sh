@@ -12,6 +12,5 @@ if [ "$MODE" = "dev" ]; then
   trap "kill $BPID $FPID 2>/dev/null || true" EXIT
   wait
 else
-  ( cd frontend && [ -d dist ] || npm run build )
-  cd backend && .venv/bin/uvicorn app.main:app --port 8765
+  exec uv run start.py
 fi
