@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Implementation Notes</title></head>
+<body>
+
+<!-- ENTRY: 2026-05-21 — Task 1: bb_client expose bb_status -->
+<section>
+  <h3>Task: bb_client — expose bb_status from get_column_grade</h3>
+  <h4>Design Decisions</h4>
+  <p>Extracted <code>data.get("status")</code> directly from the raw BB API response. No mapping of BB status strings at this layer — raw values are preserved for the backend service to interpret.</p>
+  <h4>Deviations</h4>
+  <p>None. Gemini followed the spec exactly.</p>
+  <h4>Tradeoffs</h4>
+  <p>Passing the raw BB status string (e.g. "NeedsGrading") rather than normalising it here keeps the client a thin wrapper. The backend grades service is the single place that interprets meaning.</p>
+  <h4>Open Questions</h4>
+  <p>None.</p>
+</section>
+
+</body>
+</html>

@@ -146,6 +146,27 @@ class TestBlackboardClientGradebook(unittest.TestCase):
             grade = client.get_column_grade("_130565_1", "_col1_1", "_user_1")
         self.assertEqual(grade["score"], 68.0)
 
+    def test_get_column_grade_returns_bb_status(self):
+        client = self._make_client()
+        mock_response = {"score": 68.0, "status": "Graded"}
+        with patch.object(client, '_get', return_value=mock_response):
+            grade = client.get_column_grade("_130565_1", "_col1_1", "_user_1")
+        self.assertEqual(grade["bb_status"], "Graded")
+
+    def test_get_column_grade_needs_grading_status(self):
+        client = self._make_client()
+        with patch.object(client, '_get', return_value={"status": "NeedsGrading"}):
+            grade = client.get_column_grade("_130565_1", "_col1_1", "_user_1")
+        self.assertIsNone(grade["score"])
+        self.assertEqual(grade["bb_status"], "NeedsGrading")
+
+    def test_get_column_grade_403_returns_none_bb_status(self):
+        client = self._make_client()
+        err = requests.HTTPError(response=MagicMock(status_code=403))
+        with patch.object(client, '_get', side_effect=err):
+            grade = client.get_column_grade("_130565_1", "_col1_1", "_user_1")
+        self.assertIsNone(grade["bb_status"])
+
     def test_get_column_grade_ungraded_returns_none_score(self):
         client = self._make_client()
         with patch.object(client, '_get', return_value={"status": "NotAttempted"}):

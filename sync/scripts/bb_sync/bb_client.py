@@ -89,17 +89,17 @@ class BlackboardClient:
             raise
 
     def get_column_grade(self, course_id: str, column_id: str, user_id: str) -> dict:
-        """Returns {score: float|None}. Score is None if not yet attempted."""
+        """Returns {score: float|None, bb_status: str|None}."""
         try:
             data = self._get(
                 f"/learn/api/public/v2/courses/{course_id}"
                 f"/gradebook/columns/{column_id}/users/{user_id}"
             )
             score = data.get("score") or (data.get("displayGrade") or {}).get("score")
-            return {"score": score}
+            return {"score": score, "bb_status": data.get("status")}
         except requests.HTTPError as e:
             if e.response.status_code in (403, 404):
-                return {"score": None}
+                return {"score": None, "bb_status": None}
             raise
 
     def get_content_body(self, course_id: str, content_id: str) -> str:
