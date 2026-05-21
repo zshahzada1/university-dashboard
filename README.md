@@ -1,41 +1,61 @@
-# Uni Hub Dashboard
+# University Dashboard
 
-Local study hub for tracking grades, deadlines, files, tasks, notes, and topic confidence across all Blackboard modules.
+Local study hub for grades, deadlines, files, tasks, notes, and topic confidence across all Blackboard modules.
 
-## Architecture
+## Quick Start
 
-```
-dashboard/
-  backend/      — FastAPI (Python 3.12), port 8765
-  frontend/     — React + TypeScript + Vite, port 5173 (dev)
-  sync/         — bb_sync CLI: Blackboard file + grade sync
-  run.sh        — starts both processes
-```
+**Step 1 — install [uv](https://docs.astral.sh/uv/) (one-time, ~30 seconds)**
 
-The backend serves the built frontend at `http://localhost:8765` in production. In dev mode both servers run separately and the frontend proxies API calls to the backend.
-
-## Running
-
-**Production (one process):**
 ```bash
-./run.sh
-# open http://localhost:8765
+# Mac / Linux / WSL2
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-**Development (hot-reload):**
+**Step 2 — clone**
+
 ```bash
-./run.sh dev
-# frontend: http://localhost:5173
-# backend:  http://localhost:8765
+git clone https://github.com/zshahzada1/university-dashboard.git
+cd university-dashboard
 ```
+
+**Step 3 — run**
+
+```bash
+uv run start.py        # Mac / Linux / WSL2
+run.bat                # Windows (double-click or terminal)
+```
+
+On first run, if no browser debug port is detected, the app walks you through opening Chrome or Edge with remote debugging enabled. Log in to Blackboard when prompted, press Enter, and the server starts at **http://localhost:8765**.
+
+> **Why the debug port?** Blackboard session cookies are extracted live from your running browser — your password is never stored or transmitted.
+
+## Syncing Blackboard
+
+Use the **Sync** page in the dashboard to pull the latest files and grades. You can also run it from the terminal:
+
+```bash
+# Files + grades for specific modules
+cd sync && bash sync.sh --modules FA565 FN585 FA583
+
+# Grades only (all modules)
+cd sync && bash sync.sh --grades
+
+# Force cookie refresh (if auth fails)
+cd sync && bash sync.sh --refresh-cookies
+```
+
+See [`sync/README.md`](sync/README.md) for full sync documentation.
 
 ## Features
 
 | Section | Description |
 |---|---|
-| Grades | Live grade view with module breakdowns, weighted averages, and remaining-mark projections |
+| Grades | Live grade view with module breakdowns, weighted averages, and projections |
 | Files | File tree browser for all synced Blackboard content |
-| Assignments | Deadline tracker with status and links to grades |
+| Assignments | Deadline tracker with status and Blackboard links |
 | Tasks | Personal to-do list per module |
 | Events | Calendar of upcoming events and deadlines |
 | Notes | Per-module markdown notes |
@@ -43,28 +63,36 @@ The backend serves the built frontend at `http://localhost:8765` in production. 
 | Search | Full-text search across files and notes |
 | Sync | In-browser trigger for Blackboard file + grade sync |
 
-## Blackboard Sync
+## Architecture
 
-Files and grades are synced from Blackboard via `sync/`. Edge must be open and logged in — no password is ever stored; cookies are extracted live via CDP.
-
-**Sync files + grades (from the dashboard UI):** use the Sync page.
-
-**Sync from the terminal:**
-```bash
-cd sync && bash sync.sh --modules FA565 FN585 FA583
+```
+dashboard/
+  start.py      — uv entry point (PEP 723 inline script)
+  run.sh        — Mac / Linux / WSL2 launcher
+  run.bat       — Windows launcher
+  backend/      — FastAPI (Python 3.12), port 8765
+  frontend/     — React + TypeScript + Vite (pre-built dist/ committed)
+  sync/         — bb_sync CLI: Blackboard file + grade sync
 ```
 
-**Grades only (all modules):**
+## Development
+
 ```bash
-cd sync && bash sync.sh --grades
+# Hot-reload dev mode (requires Node.js + manual venv setup)
+./run.sh dev
+# frontend: http://localhost:5173
+# backend:  http://localhost:8765
 ```
 
-**Force cookie refresh (if auth fails):**
+**Backend venv (for dev/tests):**
 ```bash
-cd sync && bash sync.sh --refresh-cookies --modules FA565 FN585 FA583
+cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
 ```
 
-See [`sync/README.md`](sync/README.md) for full sync documentation.
+**Frontend:**
+```bash
+cd frontend && npm install && npm run dev
+```
 
 ## Environment Variables
 
@@ -72,27 +100,6 @@ See [`sync/README.md`](sync/README.md) for full sync documentation.
 |---|---|---|
 | `UNI_DIR` | `~/University` | Root folder for synced course files |
 | `UNI_DATA_DIR` | `backend/data/` | JSON data directory |
-| `BBSYNC_PYTHON` | `sync/scripts/.venv/bin/python` | Python interpreter for bb_sync |
+| `BBSYNC_PYTHON` | set by `start.py` | Python used for the bb_sync subprocess |
 | `BBSYNC_SCRIPTS_DIR` | `sync/scripts/` | Working directory for bb_sync |
-
-## Setup
-
-**Backend:**
-```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-```
-
-**bb_sync:**
-```bash
-cd sync/scripts
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
+| `BB_BASE_URL` | `https://studentcentral.brighton.ac.uk` | Blackboard instance URL |

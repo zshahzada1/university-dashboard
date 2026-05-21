@@ -16,16 +16,16 @@ The sync module lives at `sync/` inside the dashboard repo and is invoked by the
 
 | Requirement | Notes |
 |---|---|
-| WSL2 on Windows 10/11 | Tested on Ubuntu |
-| Microsoft Edge | Must be open and logged into Blackboard |
-| Python 3.8+ in WSL | `python3 --version` |
+| uv | Installed via the dashboard Quick Start — handles Python and all deps |
+| Chrome or Edge | Must be open and logged into Blackboard |
 
-## Installation
+No manual venv setup needed — `uv run start.py` handles everything automatically.
+
+## Manual venv (development / tests only)
 
 ```bash
 cd sync/scripts
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -107,8 +107,15 @@ python3 -m unittest discover -v
 
 ## Troubleshooting
 
-**`CDP not ready` / cookie extraction fails**
-Edge must be running with the remote-debug port open. The extractor tries four methods in order: WSL CDP, browser-harness, PowerShell CDP, cookie-editor JSON export. If all fail, open Edge, log in to Blackboard, then re-run with `--refresh-cookies`.
+**`Could not connect to a browser debug port` / cookie extraction fails**
+Chrome or Edge must be running with `--remote-debugging-port=9222`. The easiest fix is to close the browser and re-run `uv run start.py` — the startup wizard will relaunch it correctly. Or start the browser manually:
+```bash
+# Windows / WSL2
+msedge.exe --remote-debugging-port=9222
+# Mac
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+```
+Then log in to Blackboard and re-run with `--refresh-cookies`.
 
 **Auth errors after a long session**
 Blackboard sessions expire. Open Edge, log in to Blackboard, then:
