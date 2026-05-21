@@ -29,11 +29,13 @@ class GradeSyncer:
             for col in columns:
                 grade = self._client.get_column_grade(course_id, col["id"], user_id)
                 score = grade.get("score")
+                bb_status = grade.get("bb_status")
                 col_grades.append({
                     "name": col["name"],
                     "score": score,
                     "possible": col.get("possible"),
                     "status": "graded" if score is not None else "ungraded",
+                    "bb_status": bb_status,
                 })
             result[module_code] = {"columns": col_grades}
 

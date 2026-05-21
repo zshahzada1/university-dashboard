@@ -40,7 +40,7 @@ class TestGradeSyncer(unittest.TestCase):
             syncer = GradeSyncer(client, assessments_path, grades_path)
             with patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565), \
                  patch.object(client, 'get_column_grade',
-                              side_effect=[{"score": 68.0}, {"score": None}]):
+                              side_effect=[{"score": 68.0, "bb_status": "Graded"}, {"score": None, "bb_status": "Ungraded"}]):
                 syncer.sync("_user_1", modules=["FA565"])
             out = json.loads(grades_path.read_text())
             self.assertIn("synced_at", out)
@@ -83,6 +83,26 @@ class TestGradeSyncer(unittest.TestCase):
                 syncer.sync("_user_1")
             # Both FA565 and MA583 are in assessments, so both should be attempted
             self.assertEqual(mock_cols.call_count, 2)
+
+    def test_sync_writes_bb_status(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            from grades import GradeSyncer
+            from bb_client import BlackboardClient
+            client = BlackboardClient({"BbRouter": "fake"})
+            assessments_path = tmp / "assessments.json"
+            assessments_path.write_text(json.dumps(ASSESSMENTS))
+            grades_path = tmp / "grades.json"
+            syncer = GradeSyncer(client, assessments_path, grades_path)
+            with patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565), \
+                 patch.object(client, 'get_column_grade',
+                              side_effect=[{"score": 68.0, "bb_status": "Graded"}, {"score": None, "bb_status": "NeedsGrading"}]):
+                syncer.sync("_user_1", modules=["FA565"])
+            out = json.loads(grades_path.read_text())
+            cols = out["FA565"]["columns"]
+            self.assertEqual(cols[0]["bb_status"], "Graded")
+            self.assertEqual(cols[1]["bb_status"], "NeedsGrading")
 
 if __name__ == '__main__':
     unittest.main()
