@@ -59,6 +59,7 @@ def compute_module(module_cfg: dict, raw_columns: list[dict], overrides: dict | 
                 "title": a["title"], "weight_percent": a["weight_percent"],
                 "score": None, "status": "unmapped",
             })
+            ungraded_weight += w_frac
             continue
 
         col = find_column(a["column_name"], raw_columns)

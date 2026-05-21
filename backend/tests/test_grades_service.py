@@ -110,7 +110,7 @@ def test_weights_not_summing_to_100_flags_warning():
     result = compute_module(cfg, COLS)
     assert result["weights_ok"] is False
 
-def test_unmapped_assessment_excluded_from_math():
+def test_unmapped_assessment_counts_as_ungraded_weight():
     cfg = {**FA565_CFG, "assessments": [
         {"title": "Task 1", "weight_percent": 40, "column_name": "Task 1"},
         {"title": "Unknown", "weight_percent": 60, "column_name": ""},  # empty = unmapped
@@ -120,6 +120,9 @@ def test_unmapped_assessment_excluded_from_math():
     unmapped = [a for a in result["assessments"] if a["status"] == "unmapped"]
     assert len(unmapped) == 1
     assert result["grade_so_far"] == 68.0
+    # Unmapped weight (60%) must count as remaining — module cannot be "final"
+    assert result["first_status"] != "final"
+    assert result["needed_for_first"] is not None
 
 # ── compute_grades ───────────────────────────────────────────────────────────
 
