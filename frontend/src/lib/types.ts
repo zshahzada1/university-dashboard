@@ -5,7 +5,7 @@ export type Assignment = {
   id: string; module_code: string; assignment_title: string; assignment_type: string;
   description: string; deadline_date: string; deadline_time: string;
   weighting_percent: number; word_limit_or_size: string; submission_method: string;
-  status: 'upcoming'|'submitted'|'graded'; linked_topics: string[]
+  status: 'upcoming'|'submitted'|'graded'; status_override?: 'submitted' | null; linked_topics: string[]
 }
 export type Task  = { id: string; text: string; module_code?: string|null; topic_id?: string|null;
                       due_date: string | null; done: boolean; created_at: string }
@@ -18,7 +18,7 @@ export type AssessmentGrade = {
   title: string
   weight_percent: number
   score: number | null
-  status: 'graded' | 'ungraded' | 'unmapped'
+  status: 'graded' | 'submitted' | 'upcoming' | 'unmapped'
 }
 
 export type ModuleGrade = {
