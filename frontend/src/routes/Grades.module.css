@@ -34,22 +34,17 @@
 .aStatus { padding: 0.4rem 0.5rem; white-space: nowrap; width: 7rem; }
 .aScore  { padding: 0.4rem 0; text-align: right; white-space: nowrap; width: 5.5rem; }
 
-/* Submission status select */
-.statusSel {
-  font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em;
-  padding: 0.15rem 0.3rem; border: 1px solid var(--border);
-  background: transparent; cursor: pointer; outline: none;
-  -webkit-appearance: none; appearance: none; text-align: center;
-}
-.statusSel.upcoming  { color: var(--muted);  border-color: var(--border); }
-.statusSel.submitted { color: var(--teal);   border-color: var(--teal); }
-.statusSel.graded    { color: var(--amber);  border-color: var(--amber); }
 
 /* Score badges */
 .graded   { font-family: var(--font-mono); font-size: 0.82rem; color: var(--amber); }
 .ungraded { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); }
 .unmapped { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em;
             color: var(--muted); border: 1px dashed var(--border); padding: 0.1rem 0.3rem; }
+
+.statusBadge { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; }
+.statusBadge.upcoming  { color: var(--muted); }
+.statusBadge.submitted { color: var(--teal); }
+.statusBadge.graded    { color: var(--amber); }
 
 /* ── Module footer ───────────────────────────────────────── */
 .modFoot { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
-import type { GradesResponse, ModuleGrade, OverallGrade, Assignment } from '../lib/types'
+import type { GradesResponse, ModuleGrade, OverallGrade, AssessmentGrade } from '../lib/types'
 import s from './Grades.module.css'
 
 function clsCls(c: string | null): string {
@@ -42,19 +42,13 @@ function OverallCard({ overall, synced_at }: { overall: OverallGrade; synced_at:
   )
 }
 
-const STATUS_LABELS: Record<Assignment['status'], string> = {
-  upcoming: 'UPCOMING', submitted: 'SUBMITTED', graded: 'GRADED'
+const STATUS_LABELS: Record<AssessmentGrade['status'], string> = {
+  upcoming: 'UPCOMING', submitted: 'SUBMITTED', graded: 'GRADED', unmapped: ''
 }
 
-function ModuleCard({ code, mod, assignments, onStatusChange }: {
-  code: string; mod: ModuleGrade; assignments: Assignment[];
-  onStatusChange: () => void
+function ModuleCard({ code, mod }: {
+  code: string; mod: ModuleGrade;
 }) {
-  function asgForWeight(w: number): Assignment | undefined {
-    const matches = assignments.filter(a => a.weighting_percent === w)
-    return matches.length === 1 ? matches[0] : undefined
-  }
-
   return (
     <div className={s.modCard}>
       <div className={s.modHead}>
@@ -70,27 +64,17 @@ function ModuleCard({ code, mod, assignments, onStatusChange }: {
           <table className={s.table}>
             <tbody>
               {mod.assessments.map(a => {
-                const asg = asgForWeight(a.weight_percent)
                 return (
                   <tr key={a.title} className={s.row}>
                     <td className={s.aTitle}>{a.title}</td>
                     <td className={s.aWeight}>{a.weight_percent}%</td>
                     <td className={s.aStatus}>
-                      {asg && (
-                        <select
-                          className={`${s.statusSel} ${s[asg.status]}`}
-                          value={asg.status}
-                          onChange={e => api.patchAssignment(asg.id, { status: e.target.value as Assignment['status'] }).then(onStatusChange)}
-                        >
-                          {(Object.keys(STATUS_LABELS) as Assignment['status'][]).map(st => (
-                            <option key={st} value={st}>{STATUS_LABELS[st]}</option>
-                          ))}
-                        </select>
+                      {a.status !== 'unmapped' && (
+                        <span className={`${s.statusBadge} ${s[a.status]}`}>{STATUS_LABELS[a.status]}</span>
                       )}
                     </td>
                     <td className={s.aScore}>
                       {a.status === 'graded'   && <span className={s.graded}>{a.score}%</span>}
-                      {a.status === 'ungraded' && <span className={s.ungraded}>—</span>}
                       {a.status === 'unmapped' && <span className={s.unmapped}>unmapped</span>}
                     </td>
                   </tr>
@@ -126,15 +110,13 @@ function ModuleCard({ code, mod, assignments, onStatusChange }: {
   )
 }
 
+
 export default function Grades() {
   const [data, setData]   = useState<GradesResponse | null>(null)
-  const [asgs, setAsgs]   = useState<Assignment[]>([])
   const [err, setErr]     = useState<string | null>(null)
 
-  function refreshAsgs() { api.assignments().then(setAsgs) }
   useEffect(() => {
     api.grades().then(setData).catch(e => setErr(String(e)))
-    refreshAsgs()
   }, [])
 
   if (err)   return <div className={s.err}>{err}</div>
@@ -155,9 +137,7 @@ export default function Grades() {
       )}
       <div className={s.grid}>
         {Object.entries(data.modules).map(([code, mod]) => (
-          <ModuleCard key={code} code={code} mod={mod}
-            assignments={asgs.filter(a => a.module_code === code)}
-            onStatusChange={refreshAsgs} />
+          <ModuleCard key={code} code={code} mod={mod} />
         ))}
       </div>
     </>
