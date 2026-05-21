@@ -17,6 +17,10 @@ GRADES_PATH = os.environ.get(
     "BB_GRADES_PATH",
     str(Path.home() / "University" / "dashboard" / "backend" / "data" / "grades.json")
 )
+ASSIGNMENTS_PATH = os.environ.get(
+    "BB_ASSIGNMENTS_PATH",
+    str(Path.home() / "University" / "dashboard" / "backend" / "data" / "assignments.json")
+)
 
 # Maps Blackboard course name prefix → local subfolder name
 # The script will auto-detect codes like FA565, FN585, FA583 from course titles.
