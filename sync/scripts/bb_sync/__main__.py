@@ -95,7 +95,8 @@ def main():
             print("Create it from the briefs before running --grades.", file=out)
             sys.exit(1)
         grades_path = Path(GRADES_PATH)
-        grade_syncer = GradeSyncer(client, assessments_path, grades_path)
+        grade_syncer = GradeSyncer(client, assessments_path, grades_path,
+                                   assignments_path=Path(ASSIGNMENTS_PATH))
         result = grade_syncer.sync(user_id, modules=args.modules)
         _print_grade_result(result, file=out)
         print(f"\nGrades written to {grades_path}", file=out)
@@ -136,7 +137,8 @@ def main():
     if assessments_path.exists():
         print("\nRunning grade sync…")
         grades_path = Path(GRADES_PATH)
-        grade_syncer = GradeSyncer(client, assessments_path, grades_path)
+        grade_syncer = GradeSyncer(client, assessments_path, grades_path,
+                                   assignments_path=Path(ASSIGNMENTS_PATH))
         result = grade_syncer.sync(user_id, modules=None)
         _print_grade_result(result)
         print(f"Grades written to {grades_path}")

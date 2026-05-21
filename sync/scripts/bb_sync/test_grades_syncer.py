@@ -1,4 +1,4 @@
-import sys, json, unittest
+import sys, json, unittest, copy
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 sys.path.insert(0, '.')
@@ -26,6 +26,16 @@ COLUMNS_FA565 = [
     {"id": "_col2_1", "name": "Task 2", "possible": 100.0},
 ]
 
+ASSIGNMENTS_FOR_PROMOTE = [
+    {
+        "id": "fa565-task-1",
+        "module_code": "FA565",
+        "assignment_title": "Task 1",
+        "weighting_percent": 40,
+        "status": "upcoming",
+    }
+]
+
 class TestGradeSyncer(unittest.TestCase):
     def test_sync_writes_grades_json(self):
         import tempfile
@@ -38,9 +48,9 @@ class TestGradeSyncer(unittest.TestCase):
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
             syncer = GradeSyncer(client, assessments_path, grades_path)
-            with patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565), \
-                 patch.object(client, 'get_column_grade',
-                              side_effect=[{"score": 68.0, "bb_status": "Graded"}, {"score": None, "bb_status": "Ungraded"}]):
+            with (patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+                  patch.object(client, 'get_column_grade',
+                               side_effect=[{"score": 68.0, "bb_status": "Graded"}, {"score": None, "bb_status": "Ungraded"}])):
                 syncer.sync("_user_1", modules=["FA565"])
             out = json.loads(grades_path.read_text())
             self.assertIn("synced_at", out)
@@ -95,14 +105,75 @@ class TestGradeSyncer(unittest.TestCase):
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
             syncer = GradeSyncer(client, assessments_path, grades_path)
-            with patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565), \
-                 patch.object(client, 'get_column_grade',
-                              side_effect=[{"score": 68.0, "bb_status": "Graded"}, {"score": None, "bb_status": "NeedsGrading"}]):
+            with (patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+                  patch.object(client, 'get_column_grade',
+                               side_effect=[{"score": 68.0, "bb_status": "Graded"}, {"score": None, "bb_status": "NeedsGrading"}])):
                 syncer.sync("_user_1", modules=["FA565"])
             out = json.loads(grades_path.read_text())
             cols = out["FA565"]["columns"]
             self.assertEqual(cols[0]["bb_status"], "Graded")
             self.assertEqual(cols[1]["bb_status"], "NeedsGrading")
+
+class TestPromoteStatuses(unittest.TestCase):
+    def setUp(self):
+        from grades import GradeSyncer
+        from bb_client import BlackboardClient
+        import tempfile
+        self.d = tempfile.TemporaryDirectory()
+        self.tmp = Path(self.d.name)
+        self.client = BlackboardClient({"BbRouter": "fake"})
+        self.assessments_path = self.tmp / "assessments.json"
+        self.assessments_path.write_text(json.dumps(ASSESSMENTS))
+        self.grades_path = self.tmp / "grades.json"
+        self.assignments_path = self.tmp / "assignments.json"
+
+    def tearDown(self):
+        self.d.cleanup()
+
+    def test_promotes_to_submitted_on_needs_grading(self):
+        from grades import GradeSyncer
+        self.assignments_path.write_text(json.dumps(copy.deepcopy(ASSIGNMENTS_FOR_PROMOTE)))
+        syncer = GradeSyncer(self.client, self.assessments_path, self.grades_path, self.assignments_path)
+        with (patch.object(self.client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+              patch.object(self.client, 'get_column_grade',
+                           side_effect=[{"score": None, "bb_status": "NeedsGrading"}, {"score": None, "bb_status": "NotAttempted"}])):
+            syncer.sync("_user_1", modules=["FA565"])
+        updated = json.loads(self.assignments_path.read_text())
+        self.assertEqual(updated[0]["status"], "submitted")
+
+    def test_promotes_to_graded_on_score(self):
+        from grades import GradeSyncer
+        self.assignments_path.write_text(json.dumps(copy.deepcopy(ASSIGNMENTS_FOR_PROMOTE)))
+        syncer = GradeSyncer(self.client, self.assessments_path, self.grades_path, self.assignments_path)
+        with (patch.object(self.client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+              patch.object(self.client, 'get_column_grade',
+                           side_effect=[{"score": 72.0, "bb_status": "Graded"}, {"score": None, "bb_status": "NotAttempted"}])):
+            syncer.sync("_user_1", modules=["FA565"])
+        updated = json.loads(self.assignments_path.read_text())
+        self.assertEqual(updated[0]["status"], "graded")
+
+    def test_never_demotes_from_graded(self):
+        from grades import GradeSyncer
+        graded_assignment = copy.deepcopy(ASSIGNMENTS_FOR_PROMOTE)
+        graded_assignment[0]["status"] = "graded"
+        self.assignments_path.write_text(json.dumps(graded_assignment))
+        syncer = GradeSyncer(self.client, self.assessments_path, self.grades_path, self.assignments_path)
+        with (patch.object(self.client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+              patch.object(self.client, 'get_column_grade',
+                           side_effect=[{"score": None, "bb_status": "NotAttempted"}, {"score": None, "bb_status": "NotAttempted"}])):
+            syncer.sync("_user_1", modules=["FA565"])
+        updated = json.loads(self.assignments_path.read_text())
+        self.assertEqual(updated[0]["status"], "graded")
+
+    def test_noop_when_no_assignments_path(self):
+        from grades import GradeSyncer
+        syncer = GradeSyncer(self.client, self.assessments_path, self.grades_path, assignments_path=None)
+        with (patch.object(self.client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+              patch.object(self.client, 'get_column_grade',
+                           side_effect=[{"score": None, "bb_status": "NeedsGrading"}, {"score": None, "bb_status": "NotAttempted"}])):
+            syncer.sync("_user_1", modules=["FA565"])
+        self.assertTrue(self.grades_path.exists())
+        self.assertFalse(self.assignments_path.exists())
 
 if __name__ == '__main__':
     unittest.main()
