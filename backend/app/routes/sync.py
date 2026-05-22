@@ -37,7 +37,12 @@ def get_courses():
             for ln in result.stderr.splitlines()
             if ln.startswith("ERROR:")
         ]
-        msg = " ".join(error_lines) if error_lines else (result.stderr.strip() or "bb_sync --list-courses failed")
+        if not error_lines:
+            # Avoid leaking a full traceback — surface only the last meaningful line
+            nonempty = [ln for ln in result.stderr.splitlines() if ln.strip()]
+            msg = nonempty[-1] if nonempty else "bb_sync --list-courses failed"
+        else:
+            msg = " ".join(error_lines)
         raise HTTPException(500, detail=msg)
     try:
         return json.loads(result.stdout)
@@ -50,19 +55,20 @@ async def run_sync(body: SyncRequest):
     global _sync_running
     if _sync_running:
         raise HTTPException(409, detail="Sync already running")
+    if body.mode != "grades" and not body.modules:
+        raise HTTPException(400, detail="No modules selected")
 
+    _sync_running = True  # set before yielding the response to close the TOCTOU window
     s = load_settings()
     args = [str(s.bbsync_python), "-m", "bb_sync"]
 
     if body.mode == "grades":
         args.append("--grades")
     else:
-        if body.modules:
-            args.extend(["--modules"] + body.modules)
+        args.extend(["--modules"] + body.modules)
 
     async def generate():
         global _sync_running
-        _sync_running = True
         try:
             proc = await asyncio.create_subprocess_exec(
                 *args,

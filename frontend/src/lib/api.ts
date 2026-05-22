@@ -81,7 +81,8 @@ export const api = {
       body: JSON.stringify({ modules, mode }),
     })
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
-    for await (const line of _readSSE(r.body!)) {
+    if (!r.body) throw new Error('Server returned no response body for sync stream')
+    for await (const line of _readSSE(r.body)) {
       onLine(line)
     }
   },

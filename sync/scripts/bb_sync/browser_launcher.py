@@ -88,7 +88,8 @@ def _wait_for_cdp(timeout: float = 20.0) -> bool:
 
 def _open_url_in_browser(port: int, url: str) -> None:
     try:
-        urllib.request.urlopen(f"http://127.0.0.1:{port}/json/new?{url}", timeout=5)
+        from urllib.parse import quote
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/json/new?{quote(url, safe='')}", timeout=5)
     except Exception:
         pass
 
@@ -101,6 +102,9 @@ def _wait_for_login(domain: str, port: int, timeout: float = 120.0) -> bool:
         try:
             if _extract_via_cdp(domain, port):
                 return True
+        except RuntimeError:
+            # Expected while the user is mid-login; print a dot to show progress
+            print(".", end="", flush=True)
         except Exception:
             pass
         time.sleep(2)

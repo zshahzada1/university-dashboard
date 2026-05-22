@@ -53,7 +53,9 @@ def _extract_via_cdp(domain: str, port: int) -> dict:
 
     pages = [t for t in targets if t.get("type") == "page"]
     if pages:
-        ws_url = pages[0]["webSocketDebuggerUrl"]
+        # Prefer a tab already on the target domain to avoid picking a paused DevTools session
+        bb_pages = [p for p in pages if domain in p.get("url", "")]
+        ws_url = (bb_pages or pages)[0]["webSocketDebuggerUrl"]
     else:
         try:
             new_raw = urllib.request.urlopen(
@@ -125,6 +127,9 @@ def extract_bb_cookies(force_refresh: bool = False) -> dict:
         )
 
     print(f"    [cdp] Extracting cookies from browser on port {port}…")
-    cookies = _extract_via_cdp(domain, port)
+    try:
+        cookies = _extract_via_cdp(domain, port)
+    except RuntimeError as e:
+        raise RuntimeError(f"{e}\n\n{_SETUP_HINT}") from e
     _save_cache(cache, cookies)
     return cookies

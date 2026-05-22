@@ -84,10 +84,13 @@ export default function Sync() {
     try {
       await api.syncRun(mods, mode, line => {
         if (line.startsWith('__exit__:')) {
-          const code = parseInt(line.split(':')[1], 10)
+          const raw = line.split(':')[1]
+          const code = parseInt(raw, 10)
           setLines(l => [...l, code === 0
             ? { text: 'Done.', cls: s.done }
-            : { text: `Sync failed (exit ${code}).`, cls: s.failed },
+            : isNaN(code)
+              ? { text: 'Sync cancelled.', cls: s.failed }
+              : { text: `Sync failed (exit ${code}).`, cls: s.failed },
           ])
         } else {
           setLines(l => [...l, { text: line }])
