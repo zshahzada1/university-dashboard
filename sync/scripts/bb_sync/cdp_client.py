@@ -66,3 +66,41 @@ class CdpSession:
         if parsed.hostname == "localhost":
             ws_url = urlunparse(parsed._replace(netloc=parsed.netloc.replace("localhost", "127.0.0.1", 1)))
         return ws_url
+
+    def _send(self, method: str, params: dict = None) -> dict:
+        self._msg_id += 1
+        self._ws.send(json.dumps({"id": self._msg_id, "method": method, "params": params or {}}))
+        return json.loads(self._ws.recv())
+
+    def fetch_json(self, path: str, params: dict = None) -> dict:
+        import requests
+        path_js = json.dumps(path)
+        params_js = json.dumps(params or {})
+        js = (
+            f"(async () => {{\n"
+            f"  const url = new URL({path_js}, location.origin);\n"
+            f"  Object.entries({params_js}).forEach(([k, v]) => url.searchParams.set(k, String(v)));\n"
+            f"  const r = await fetch(url.toString(), {{\n"
+            f"    credentials: 'include',\n"
+            f"    headers: {{Accept: 'application/json'}}\n"
+            f"  }});\n"
+            f"  return {{status: r.status, body: r.ok ? await r.json() : null}};\n"
+            f"}})()"
+        )
+        result = self._send("Runtime.evaluate", {
+            "expression": js,
+            "awaitPromise": True,
+            "returnByValue": True,
+            "timeout": 30000,
+        })
+        inner = result.get("result", {})
+        if "exceptionDetails" in inner:
+            desc = inner["exceptionDetails"].get("text", "unknown error")
+            raise RuntimeError(f"fetch() failed in browser tab: {desc}")
+        value = inner.get("result", {}).get("value", {})
+        status = value.get("status", 0)
+        if not (200 <= status < 300):
+            fake = requests.Response()
+            fake.status_code = status
+            raise requests.HTTPError(response=fake)
+        return value.get("body") or {}

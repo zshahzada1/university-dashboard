@@ -70,5 +70,69 @@ class TestCdpSessionInit(unittest.TestCase):
         ws.connect.assert_called_once_with(bb_ws, timeout=10, suppress_origin=True)
 
 
+class TestCdpSessionFetchJson(unittest.TestCase):
+    def _make_session(self):
+        """Bypass __init__ to get a CdpSession with a mock WebSocket."""
+        from cdp_client import CdpSession
+        s = object.__new__(CdpSession)
+        s._ws = MagicMock()
+        s._msg_id = 0
+        return s
+
+    def _eval_response(self, status, body=None):
+        return json.dumps({
+            "id": 1,
+            "result": {"result": {"type": "object", "value": {"status": status, "body": body}}}
+        })
+
+    def _eval_error(self, text="NetworkError"):
+        return json.dumps({
+            "id": 1,
+            "result": {
+                "result": {"type": "object", "subtype": "error", "description": text},
+                "exceptionDetails": {"text": text},
+            }
+        })
+
+    def test_returns_body_on_200(self):
+        s = self._make_session()
+        s._ws.recv.return_value = self._eval_response(200, {"id": "u1"})
+        result = s.fetch_json("/learn/api/public/v1/users/me")
+        self.assertEqual(result["id"], "u1")
+
+    def test_raises_http_error_on_401(self):
+        import requests
+        s = self._make_session()
+        s._ws.recv.return_value = self._eval_response(401)
+        with self.assertRaises(requests.HTTPError) as ctx:
+            s.fetch_json("/learn/api/public/v1/users/me")
+        self.assertEqual(ctx.exception.response.status_code, 401)
+
+    def test_raises_http_error_on_404(self):
+        import requests
+        s = self._make_session()
+        s._ws.recv.return_value = self._eval_response(404)
+        with self.assertRaises(requests.HTTPError) as ctx:
+            s.fetch_json("/some/path")
+        self.assertEqual(ctx.exception.response.status_code, 404)
+
+    def test_raises_runtime_error_on_js_exception(self):
+        s = self._make_session()
+        s._ws.recv.return_value = self._eval_error("NetworkError: failed to fetch")
+        with self.assertRaises(RuntimeError) as ctx:
+            s.fetch_json("/learn/api/public/v1/users/me")
+        self.assertIn("NetworkError", str(ctx.exception))
+
+    def test_sends_params_embedded_in_js(self):
+        s = self._make_session()
+        s._ws.recv.return_value = self._eval_response(200, {"results": []})
+        s.fetch_json("/learn/api/public/v1/users/me/courses", {"limit": 200, "expand": "course"})
+        sent = json.loads(s._ws.send.call_args[0][0])
+        self.assertEqual(sent["method"], "Runtime.evaluate")
+        self.assertIn("limit", sent["params"]["expression"])
+        self.assertIn("200", sent["params"]["expression"])
+        self.assertTrue(sent["params"]["awaitPromise"])
+
+
 if __name__ == "__main__":
     unittest.main()
