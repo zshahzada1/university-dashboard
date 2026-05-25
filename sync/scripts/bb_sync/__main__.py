@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import BB_BASE_URL, LOCAL_ROOT, local_path_for_course, should_sync_course, MODULE_CODE_RE, ASSESSMENTS_PATH, GRADES_PATH, ASSIGNMENTS_PATH
-from cookie_extractor import extract_bb_cookies
+from cdp_client import CdpSession
 from bb_client import BlackboardClient
 from syncer import Syncer
 from grades import GradeSyncer
@@ -26,7 +26,7 @@ def _print_grade_result(result: dict, file=sys.stdout) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Blackboard file sync")
     parser.add_argument("--refresh-cookies", action="store_true",
-                        help="Force re-extract cookies from Edge")
+                        help="(no-op) Kept for CLI compatibility")
     parser.add_argument("--list-courses", action="store_true",
                         help="Output enrolled courses as JSON and exit")
     parser.add_argument("--grades", action="store_true",
@@ -40,14 +40,14 @@ def main():
 
     print(f"Blackboard Sync — {BB_BASE_URL}", file=out)
 
-    print("Extracting Edge cookies from Windows…", file=out)
+    print("Connecting to Blackboard tab in Edge…", file=out)
     try:
-        cookies = extract_bb_cookies(force_refresh=args.refresh_cookies)
+        cdp = CdpSession()
     except RuntimeError as e:
         print(f"ERROR: {e}", file=out)
         sys.exit(1)
 
-    client = BlackboardClient(cookies)
+    client = BlackboardClient(cdp)
     syncer = Syncer(client, LOCAL_ROOT)
 
     print("Checking authentication…", file=out)
@@ -55,7 +55,7 @@ def main():
         me = client.get_current_user()
     except Exception as e:
         print(f"ERROR: Could not authenticate with Blackboard: {e}", file=out)
-        print("Try: python -m bb_sync --refresh-cookies", file=out)
+        print("Make sure Edge has a Blackboard tab open and you are logged in.", file=out)
         sys.exit(1)
 
     user_id = me.get("id")

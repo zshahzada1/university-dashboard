@@ -30,7 +30,7 @@ class TestMainFilter(unittest.TestCase):
 
         main_mod = self._load_main_module()
 
-        with patch('bb_sync_main.extract_bb_cookies', return_value={}), \
+        with patch('bb_sync_main.CdpSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=mock_syncer), \
              patch('sys.argv', ['bb_sync']):
@@ -66,7 +66,7 @@ class TestMainFilter(unittest.TestCase):
         mock_syncer = MagicMock()
         main_mod = self._load_main_module()
 
-        with patch('bb_sync_main.extract_bb_cookies', return_value={}), \
+        with patch('bb_sync_main.CdpSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=mock_syncer), \
              patch('sys.argv', ['bb_sync', '--modules', 'FA565']):
@@ -88,7 +88,7 @@ class TestMainFilter(unittest.TestCase):
         mock_syncer = MagicMock()
         main_mod = self._load_main_module()
 
-        with patch('bb_sync_main.extract_bb_cookies', return_value={}), \
+        with patch('bb_sync_main.CdpSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=mock_syncer), \
              patch('sys.argv', ['bb_sync', '--modules', 'FA565', 'FN585']):
@@ -110,7 +110,7 @@ class TestMainFilter(unittest.TestCase):
         main_mod = self._load_main_module()
 
         buf = io.StringIO()
-        with patch('bb_sync_main.extract_bb_cookies', return_value={}), \
+        with patch('bb_sync_main.CdpSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=MagicMock()), \
              patch('sys.argv', ['bb_sync', '--list-courses']), \

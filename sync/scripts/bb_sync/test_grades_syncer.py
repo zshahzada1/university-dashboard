@@ -43,7 +43,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            client = BlackboardClient({"BbRouter": "fake"})
+            mock_cdp = MagicMock()
+            mock_cdp.get_all_cookies.return_value = {}
+            client = BlackboardClient(mock_cdp)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -68,7 +70,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            client = BlackboardClient({"BbRouter": "fake"})
+            mock_cdp = MagicMock()
+            mock_cdp.get_all_cookies.return_value = {}
+            client = BlackboardClient(mock_cdp)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -84,7 +88,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            client = BlackboardClient({"BbRouter": "fake"})
+            mock_cdp = MagicMock()
+            mock_cdp.get_all_cookies.return_value = {}
+            client = BlackboardClient(mock_cdp)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -100,7 +106,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            client = BlackboardClient({"BbRouter": "fake"})
+            mock_cdp = MagicMock()
+            mock_cdp.get_all_cookies.return_value = {}
+            client = BlackboardClient(mock_cdp)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -121,7 +129,9 @@ class TestPromoteStatuses(unittest.TestCase):
         import tempfile
         self.d = tempfile.TemporaryDirectory()
         self.tmp = Path(self.d.name)
-        self.client = BlackboardClient({"BbRouter": "fake"})
+        mock_cdp = MagicMock()
+        mock_cdp.get_all_cookies.return_value = {}
+        self.client = BlackboardClient(mock_cdp)
         self.assessments_path = self.tmp / "assessments.json"
         self.assessments_path.write_text(json.dumps(ASSESSMENTS))
         self.grades_path = self.tmp / "grades.json"
