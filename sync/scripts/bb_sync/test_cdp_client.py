@@ -134,5 +134,41 @@ class TestCdpSessionFetchJson(unittest.TestCase):
         self.assertTrue(sent["params"]["awaitPromise"])
 
 
+class TestCdpSessionCookiesAndLifecycle(unittest.TestCase):
+    def _make_session(self):
+        from cdp_client import CdpSession
+        s = object.__new__(CdpSession)
+        s._ws = MagicMock()
+        s._msg_id = 0
+        return s
+
+    def _cookies_response(self, cookies):
+        return json.dumps({"id": 1, "result": {"cookies": cookies}})
+
+    def test_returns_bb_domain_cookies(self):
+        s = self._make_session()
+        s._ws.recv.return_value = self._cookies_response([
+            {"name": "BbRouter", "value": "abc", "domain": ".brighton.ac.uk"},
+            {"name": "_ga", "value": "x", "domain": ".brighton.ac.uk"},
+            {"name": "other", "value": "y", "domain": ".example.com"},
+        ])
+        result = s.get_all_cookies()
+        self.assertIn("BbRouter", result)
+        self.assertEqual(result["BbRouter"], "abc")
+        self.assertNotIn("_ga", result)    # stripped: tracking prefix
+        self.assertNotIn("other", result)  # stripped: wrong domain
+
+    def test_context_manager_closes_ws(self):
+        s = self._make_session()
+        with s:
+            pass
+        s._ws.close.assert_called_once()
+
+    def test_close_is_safe_when_ws_already_closed(self):
+        s = self._make_session()
+        s._ws.close.side_effect = Exception("already closed")
+        s.close()  # must not raise
+
+
 if __name__ == "__main__":
     unittest.main()

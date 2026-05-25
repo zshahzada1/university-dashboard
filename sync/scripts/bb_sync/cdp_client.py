@@ -104,3 +104,28 @@ class CdpSession:
             fake.status_code = status
             raise requests.HTTPError(response=fake)
         return value.get("body") or {}
+
+    def get_all_cookies(self) -> dict:
+        result = self._send("Network.getAllCookies")
+        all_cookies = result.get("result", {}).get("cookies", [])
+        return {
+            c["name"]: c["value"]
+            for c in all_cookies
+            if (
+                _DOMAIN in c.get("domain", "")
+                or c.get("domain", "").lstrip(".") in _DOMAIN
+            )
+            and not any(c["name"].startswith(p) for p in self._TRACKING_PREFIXES)
+        }
+
+    def close(self) -> None:
+        try:
+            self._ws.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
