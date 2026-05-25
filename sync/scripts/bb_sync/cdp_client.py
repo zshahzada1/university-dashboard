@@ -69,8 +69,12 @@ class CdpSession:
 
     def _send(self, method: str, params: dict = None) -> dict:
         self._msg_id += 1
-        self._ws.send(json.dumps({"id": self._msg_id, "method": method, "params": params or {}}))
-        return json.loads(self._ws.recv())
+        msg_id = self._msg_id
+        self._ws.send(json.dumps({"id": msg_id, "method": method, "params": params or {}}))
+        while True:
+            response = json.loads(self._ws.recv())
+            if response.get("id") == msg_id:
+                return response
 
     def fetch_json(self, path: str, params: dict = None) -> dict:
         import requests
