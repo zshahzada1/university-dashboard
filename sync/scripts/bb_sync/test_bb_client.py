@@ -20,9 +20,37 @@ MOCK_ATTACHMENTS = {"results": [
     {"id": "_99_1", "fileName": "week1.pdf", "mimeType": "application/pdf"}
 ]}
 
+class TestBlackboardClientWithCdp(unittest.TestCase):
+    def _make_cdp(self, fetch_return=None, cookies=None):
+        cdp = MagicMock()
+        cdp.fetch_json.return_value = fetch_return or {}
+        cdp.get_all_cookies.return_value = cookies or {"BbRouter": "fake"}
+        return cdp
+
+    def test_constructor_seeds_session_from_cdp_cookies(self):
+        cdp = self._make_cdp(cookies={"BbRouter": "abc123"})
+        client = BlackboardClient(cdp)
+        self.assertEqual(client._session.cookies.get("BbRouter"), "abc123")
+
+    def test_get_delegates_to_fetch_json(self):
+        cdp = self._make_cdp(fetch_return={"id": "u1"})
+        client = BlackboardClient(cdp)
+        result = client._get("/learn/api/public/v1/users/me")
+        cdp.fetch_json.assert_called_once_with("/learn/api/public/v1/users/me", None)
+        self.assertEqual(result["id"], "u1")
+
+    def test_get_passes_params_to_fetch_json(self):
+        cdp = self._make_cdp(fetch_return={"results": []})
+        client = BlackboardClient(cdp)
+        client._get("/learn/api/public/v1/courses", {"limit": 200})
+        cdp.fetch_json.assert_called_once_with("/learn/api/public/v1/courses", {"limit": 200})
+
+
 class TestBlackboardClient(unittest.TestCase):
     def _make_client(self):
-        return BlackboardClient({"BbRouter": "fake", "JSESSIONID": "fake"})
+        cdp = MagicMock()
+        cdp.get_all_cookies.return_value = {"BbRouter": "fake", "JSESSIONID": "fake"}
+        return BlackboardClient(cdp)
 
     def _mock_resp(self, data):
         mock_resp = MagicMock()
@@ -32,26 +60,26 @@ class TestBlackboardClient(unittest.TestCase):
 
     def test_get_current_user(self):
         client = self._make_client()
-        client._session.get = MagicMock(return_value=self._mock_resp(MOCK_ME))
+        client._cdp.fetch_json.return_value = MOCK_ME
         user = client.get_current_user()
         self.assertEqual(user["id"], "_123_1")
 
     def test_get_courses(self):
         client = self._make_client()
-        client._session.get = MagicMock(return_value=self._mock_resp(MOCK_COURSES))
+        client._cdp.fetch_json.return_value = MOCK_COURSES
         courses = client.get_courses("_123_1")
         self.assertEqual(len(courses), 2)
         self.assertEqual(courses[0]["courseId"], "FN585")
 
     def test_get_contents(self):
         client = self._make_client()
-        client._session.get = MagicMock(return_value=self._mock_resp(MOCK_CONTENTS))
+        client._cdp.fetch_json.return_value = MOCK_CONTENTS
         contents = client.get_contents("_1_1")
         self.assertEqual(len(contents), 2)
 
     def test_get_attachments(self):
         client = self._make_client()
-        client._session.get = MagicMock(return_value=self._mock_resp(MOCK_ATTACHMENTS))
+        client._cdp.fetch_json.return_value = MOCK_ATTACHMENTS
         attachments = client.get_attachments("_1_1", "_10_1")
         self.assertEqual(attachments[0]["fileName"], "week1.pdf")
 
@@ -78,7 +106,7 @@ class TestBlackboardClient(unittest.TestCase):
              "course": {"id": "_2_1", "courseId": "FA565", "name": "FA565"}},
         ]}
         client = self._make_client()
-        client._session.get = MagicMock(return_value=self._mock_resp(mock_data))
+        client._cdp.fetch_json.return_value = mock_data
         courses = client.get_courses("_123_1")
         self.assertEqual(len(courses), 1)
         self.assertEqual(courses[0]["courseId"], "FA565")
@@ -122,7 +150,9 @@ MOCK_GRADE = {"score": 68.0, "status": "Graded"}
 
 class TestBlackboardClientGradebook(unittest.TestCase):
     def _make_client(self):
-        return BlackboardClient({"BbRouter": "fake", "JSESSIONID": "fake"})
+        cdp = MagicMock()
+        cdp.get_all_cookies.return_value = {"BbRouter": "fake", "JSESSIONID": "fake"}
+        return BlackboardClient(cdp)
 
     def test_get_gradebook_columns_success(self):
         client = self._make_client()

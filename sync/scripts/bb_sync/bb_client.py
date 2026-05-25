@@ -8,17 +8,14 @@ FOLDER_TYPES = {
 }
 
 class BlackboardClient:
-    def __init__(self, cookies: dict):
-        self._cookies = cookies
+    def __init__(self, cdp):
+        self._cdp = cdp
         self._base = BB_BASE_URL.rstrip("/")
         self._session = requests.Session()
-        self._session.cookies.update(cookies)
+        self._session.cookies.update(cdp.get_all_cookies())
 
     def _get(self, path: str, params: dict = None) -> dict:
-        url = f"{self._base}{path}"
-        resp = self._session.get(url, params=params or {}, allow_redirects=True, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
+        return self._cdp.fetch_json(path, params)
 
     def download_stream(self, url: str):
         return self._session.get(url, stream=True, allow_redirects=True, timeout=60)
