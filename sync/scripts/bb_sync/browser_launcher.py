@@ -96,12 +96,13 @@ def _open_url_in_browser(port: int, url: str) -> None:
 
 def _wait_for_login(domain: str, port: int, timeout: float = 120.0) -> bool:
     """Poll until cookies for domain appear in the browser. Returns True when found."""
-    from cookie_extractor import _extract_via_cdp
+    from cdp_client import CdpSession
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            if _extract_via_cdp(domain, port):
-                return True
+            with CdpSession() as session:
+                if session.get_all_cookies():
+                    return True
         except RuntimeError:
             # Expected while the user is mid-login; print a dot to show progress
             print(".", end="", flush=True)
