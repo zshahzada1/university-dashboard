@@ -39,11 +39,10 @@ class TestCdpSessionInit(unittest.TestCase):
         self.assertIn("9222", str(ctx.exception))
 
     def test_raises_when_no_blackboard_tab(self):
-        ws = MagicMock()
         with patch("urllib.request.urlopen", side_effect=[
             _version_mock(),
             _targets_mock([_other_target()])
-        ]), patch("websocket.WebSocket", return_value=ws):
+        ]):
             with self.assertRaises(RuntimeError) as ctx:
                 from cdp_client import CdpSession
                 CdpSession()

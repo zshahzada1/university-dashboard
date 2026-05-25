@@ -43,7 +43,7 @@ class CdpSession:
             try:
                 urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=2)
                 return port
-            except Exception:
+            except OSError:
                 continue
         return None
 
@@ -51,11 +51,18 @@ class CdpSession:
         raw = urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=5).read()
         targets = json.loads(raw)
         pages = [t for t in targets if t.get("type") == "page"]
-        bb_pages = [p for p in pages if _DOMAIN in p.get("url", "")]
+        bb_pages = [
+            p for p in pages
+            if _DOMAIN in p.get("url", "") and "webSocketDebuggerUrl" in p
+        ]
         if not bb_pages:
             raise RuntimeError(
-                f"No Blackboard tab found in Edge.\n"
-                f"Open {BB_BASE_URL} in Edge and log in, then retry.\n\n{_SETUP_HINT}"
+                f"No ready Blackboard tab found in Edge.\n"
+                f"Open {BB_BASE_URL} in Edge, log in, and wait for the page to finish loading, then retry.\n\n{_SETUP_HINT}"
             )
         ws_url = bb_pages[0]["webSocketDebuggerUrl"]
-        return ws_url.replace("localhost", "127.0.0.1")
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(ws_url)
+        if parsed.hostname == "localhost":
+            ws_url = urlunparse(parsed._replace(netloc=parsed.netloc.replace("localhost", "127.0.0.1", 1)))
+        return ws_url
