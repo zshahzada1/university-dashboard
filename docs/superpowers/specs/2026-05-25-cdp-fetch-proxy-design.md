@@ -101,7 +101,7 @@ with CdpSession() as cdp:
     # ... rest of sync unchanged
 ```
 
-`--refresh-cookies` flag becomes a no-op (no cache to refresh). Keep it accepted by the argument parser and silently ignore it — the flag appears in documented sync commands in CLAUDE.md so removing it would break existing usage.
+`--refresh-cookies` flag becomes a no-op (no cache to refresh). Keep it accepted by the argument parser and silently ignore it — removing it would break existing sync commands.
 
 ---
 
