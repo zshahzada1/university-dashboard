@@ -3,6 +3,10 @@ import json
 import argparse
 from pathlib import Path
 
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import BB_BASE_URL, LOCAL_ROOT, local_path_for_course, should_sync_course, MODULE_CODE_RE, ASSESSMENTS_PATH, GRADES_PATH, ASSIGNMENTS_PATH
