@@ -5,6 +5,7 @@ import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 from bb_client import BlackboardClient
 
 
@@ -31,31 +32,68 @@ def _winpath(path: Path) -> str:
     return s if s.startswith("\\\\?\\") else "\\\\?\\" + s
 
 
+# Plain <a href> links in page bodies are followed only when they point at a document.
+DOC_EXTENSIONS = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".pptm", ".xls", ".xlsx", ".xlsm",
+                  ".csv", ".txt", ".rtf", ".odt", ".zip"}
+
+
+def _doc_name_from_url(url: str) -> str | None:
+    """File name from a link's path if it looks like a document, else None."""
+    name = unquote(urlparse(url).path.rstrip("/").rsplit("/", 1)[-1])
+    return name if os.path.splitext(name)[1].lower() in DOC_EXTENSIONS else None
+
+
 class _AttachmentLinkParser(HTMLParser):
+    """Collects (file_name, url) for files a page body embeds or links to.
+
+    Two shapes are recognised:
+    - Blackboard file embeds (``data-bbfile``), whether shown as a link (render "inline")
+      or displayed inside the page (render "inlineOnly"). Only images Blackboard marks
+      decorative are skipped.
+    - Plain hyperlinks whose path ends in a document extension (e.g. a module spec on
+      SharePoint), named after the link text when that is itself a file name.
+    """
+
     def __init__(self):
         super().__init__()
-        self.links = []  # list of (file_name, resource_url)
+        self.links: list[tuple[str, str]] = []
+        self._plain: dict | None = None  # plain <a> being read: {"href", "text"}
 
     def handle_starttag(self, tag, attrs):
         if tag != "a":
             return
         attrs_dict = dict(attrs)
+        href = attrs_dict.get("href") or ""
         raw = attrs_dict.get("data-bbfile", "")
         if not raw:
+            if href and _doc_name_from_url(href):
+                self._plain = {"href": href, "text": ""}
             return
         try:
             bbfile = json.loads(raw)
         except json.JSONDecodeError:
             return
-        if bbfile.get("isDecorative") or bbfile.get("render") == "inlineOnly":
+        if bbfile.get("isDecorative"):
             return
         # fileName/displayName for data-bbtype="attachment" style; linkName for bare embed style
         file_name = bbfile.get("fileName") or bbfile.get("displayName") or bbfile.get("linkName")
         # Prefer href (stable bbcswebdav URL) over resourceUrl (may be a short-lived session URL)
-        href = attrs_dict.get("href", "")
         resource_url = href if href else bbfile.get("resourceUrl", "")
         if file_name and resource_url:
             self.links.append((file_name, resource_url))
+
+    def handle_data(self, data):
+        if self._plain is not None:
+            self._plain["text"] += data
+
+    def handle_endtag(self, tag):
+        if tag != "a" or self._plain is None:
+            return
+        text = self._plain["text"].strip()
+        url_name = _doc_name_from_url(self._plain["href"])
+        name = text if os.path.splitext(text)[1].lower() == os.path.splitext(url_name)[1].lower() else url_name
+        self.links.append((name, self._plain["href"]))
+        self._plain = None
 
 
 MANIFEST_NAME = ".bbsync-manifest.json"
@@ -188,12 +226,38 @@ class Syncer:
             if os.path.exists(_winpath(dest_path)):
                 print(f"    [skip] {safe}")
                 continue
-            print(f"    [download inline] {safe}")
             try:
-                self._stream_to_file(resource_url, dest_path)
+                if self._client.is_blackboard_url(resource_url):
+                    print(f"    [download inline] {safe}")
+                    self._stream_to_file(resource_url, dest_path)
+                elif self._client.is_sharepoint_url(resource_url):
+                    self._download_sharepoint(safe, resource_url, dest)
+                else:
+                    print(f"    [link] {safe} — on another website, not downloaded: {resource_url}")
             except Exception as e:
                 self._errors += 1
                 print(f"    [error] {safe}: {e}")
+
+    def _download_sharepoint(self, name: str, url: str, dest: Path):
+        """University SharePoint files need the Microsoft sign-in, so go through the browser."""
+        got = self._client.download_sharepoint(url)
+        if got is None:
+            self._errors += 1
+            print(f"    [broken link] {name} — SharePoint has no file at {url.split('?')[0]}")
+            return
+        actual_name, data = got
+        final = dest / (_safe_name(actual_name) or name)
+        if final.name != name:
+            if os.path.exists(_winpath(final)):
+                print(f"    [skip] {final.name}")
+                return
+            print(f"    [download linked] {final.name} (the page links to {name}, which was moved/renamed)")
+        else:
+            print(f"    [download linked] {name}")
+        tmp = final.with_suffix(final.suffix + ".tmp")
+        with open(_winpath(tmp), "wb") as f:
+            f.write(data)
+        os.replace(_winpath(tmp), _winpath(final))
 
     def _download_attachment(self, course_id: str, content_id: str,
                               attachment: dict, dest_dir: str, modified: str | None = None):

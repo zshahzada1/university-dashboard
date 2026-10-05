@@ -55,7 +55,13 @@ On the **Sync** page:
 
 What a sync does:
 
-- **Files** are mirrored into `~/University/<MODULE>/`, following Blackboard's folder structure. Attachments, embedded files and page bodies (saved as `.html`) are all included.
+- **Files** are mirrored into `~/University/<MODULE>/`, following Blackboard's folder structure. Included:
+  - attachments;
+  - files embedded in pages, including ones displayed inside the page;
+  - page bodies, saved as `.html`;
+  - documents that pages link to on Blackboard or the university's SharePoint (fetched with your Microsoft sign-in).
+
+  A SharePoint link whose file has been moved to a different format (e.g. `.docx` → `.pdf`) is followed to the new file. A dead link is reported as `[broken link]`. Documents on other websites are listed in the log but not downloaded.
 - **Re-running is cheap.** Unchanged files are skipped. Files a lecturer replaces on Blackboard are downloaded again, tracked by a hidden `.bbsync-manifest.json` per module.
 - **Unpublished courses** (not yet opened to students) are reported as *not published yet*. They sync automatically once the lecturer publishes them.
 - **New modules** are added to the dashboard (name, colour, topics) after their first sync.

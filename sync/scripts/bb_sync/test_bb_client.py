@@ -53,6 +53,23 @@ class TestBlackboardClientWithSession(unittest.TestCase):
         self.assertEqual(get.call_args[0][0],
                          "https://studentcentral.brighton.ac.uk/bbcswebdav/pid-1/x.pdf")
 
+    def test_url_classification(self):
+        client = BlackboardClient(self._make_bb())
+        self.assertTrue(client.is_blackboard_url("/bbcswebdav/x.pdf"))
+        self.assertTrue(client.is_blackboard_url("https://studentcentral.brighton.ac.uk/x.pdf"))
+        self.assertFalse(client.is_blackboard_url("https://unibrightonac.sharepoint.com/x.pdf"))
+        self.assertTrue(client.is_sharepoint_url("https://unibrightonac.sharepoint.com/x.pdf"))
+        self.assertFalse(client.is_sharepoint_url("https://evilsharepoint.com.example/x.pdf"))
+
+    def test_sharepoint_candidates(self):
+        from bb_session import sharepoint_candidates
+        link = ("https://unibrightonac.sharepoint.com/:w:/r/sites/cr/moduledocs/Business_and_Law/"
+                "2024-25/FN668.docx?d=w6b99&csf=1&web=1")
+        base = "https://unibrightonac.sharepoint.com/sites/cr/moduledocs/Business_and_Law/2024-25/FN668"
+        self.assertEqual(sharepoint_candidates(link), [base + ".docx", base + ".pdf"])
+        self.assertEqual(sharepoint_candidates("https://x.sharepoint.com/a/b.xlsx"),
+                         ["https://x.sharepoint.com/a/b.xlsx"])
+
     def test_download_stream_rejects_non_http(self):
         client = BlackboardClient(self._make_bb())
         with self.assertRaises(ValueError):

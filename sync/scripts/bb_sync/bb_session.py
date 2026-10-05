@@ -8,11 +8,13 @@ debugging port is exposed.
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import requests
 
@@ -36,6 +38,21 @@ _FETCH_JS = """async ({path, params}) => {
 }"""
 
 
+def sharepoint_candidates(url: str) -> list[str]:
+    """Direct file URLs to try for a SharePoint link, most likely first.
+
+    Sharing links look like ``/:w:/r/sites/…/FN668.docx?d=…``; the ``/:w:/r`` prefix and
+    query are dropped to get the file path. If the extension is a document type, the
+    same name with the other common extension (.pdf/.docx) is tried next.
+    """
+    p = urlparse(url)
+    path = re.sub(r"^/:[a-z]:/[a-z]/", "/", p.path)
+    direct = f"{p.scheme}://{p.netloc}{path}"
+    root, ext = os.path.splitext(direct)
+    alternates = [root + e for e in (".pdf", ".docx") if ext.lower() in (".pdf", ".docx", ".doc") and e != ext.lower()]
+    return [direct, *alternates]
+
+
 class BbSession:
     def __init__(self, headless: bool = True, profile_dir: str = PROFILE_DIR,
                  base_url: str = BB_BASE_URL):
@@ -46,6 +63,7 @@ class BbSession:
         self._pw = None
         self._context = None
         self._page = None
+        self._sso_hosts: set[str] = set()  # SharePoint sites already signed in this run
 
     # ── lifecycle ────────────────────────────────────────────────────────────
     def __enter__(self):
@@ -215,6 +233,34 @@ class BbSession:
             fake.status_code = status
             raise requests.HTTPError(f"HTTP {status} for {path}", response=fake)
         return value.get("body") or {}
+
+    def download_sharepoint(self, url: str) -> tuple[str, bytes] | None:
+        """Fetch a university SharePoint file linked from a course page.
+
+        SharePoint needs the Microsoft sign-in, which the profile already holds:
+        visiting the site once in a page completes SSO, after which the context's
+        request client can download directly. Dead links (files moved or converted,
+        e.g. a .docx republished as .pdf) fall back to the same name with the other
+        document extension. Returns (file name, bytes), or None if nothing is there.
+        """
+        host = urlparse(url).hostname
+        if host not in self._sso_hosts:
+            page = self._context.new_page()
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            except Exception:
+                pass  # a file URL may start a download or 404 — SSO has completed either way
+            finally:
+                page.close()
+            self._sso_hosts.add(host)
+        for candidate in sharepoint_candidates(url):
+            try:
+                r = self._context.request.get(candidate + "?download=1", timeout=120000)
+            except Exception:
+                continue
+            if r.ok and "text/html" not in r.headers.get("content-type", ""):
+                return unquote(candidate.rsplit("/", 1)[-1]), r.body()
+        return None
 
     def cookie_jar(self) -> requests.cookies.RequestsCookieJar:
         """Browser cookies as a domain-scoped jar, so requests only sends them to matching hosts."""

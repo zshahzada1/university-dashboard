@@ -14,6 +14,11 @@ Syncs files and grades from Blackboard Ultra into `~/University/<MODULE>/`. It's
 3. **API calls.** Blackboard REST calls run as `fetch()` inside a Blackboard page, so the browser supplies the session headers Blackboard expects.
 4. **Course selection.** With no `--modules`, the current term is synced: the term with the most coded courses, with ties going to the latest year in the course titles. Courses the lecturer hasn't published yet are reported as `[not published yet]` and skipped.
 5. **Content walk.** The content tree of each selected module is walked. Attachments are streamed to a `.tmp` file and renamed on completion; document bodies are saved as `.html`.
+   - **Embedded files.** Files embedded in a page body (`data-bbfile`) are downloaded, whether Blackboard shows them as a link (`render: inline`) or displays them inside the page (`render: inlineOnly`). Only images marked `isDecorative` are skipped.
+   - **Linked documents.** Plain links whose path ends in a document extension (`.pdf`, `.docx`, `.pptx`, `.xlsx`, …) are followed:
+     - On Blackboard, they're streamed like attachments.
+     - On `*.sharepoint.com`, they're fetched through the browser profile's Microsoft sign-in. A dead `.docx`/`.pdf` link falls back to the same name with the other extension, and anything still missing is logged as `[broken link]`.
+     - On other sites, they're logged as `[link]` and not downloaded.
 6. **Updates.** A per-module `.bbsync-manifest.json` records each item's Blackboard `modified` time, so files the lecturer replaces are downloaded again. Unchanged files are skipped, so it's safe to re-run at any time.
 7. **Grades.** Grades are synced for modules listed in `backend/data/assessments.json` and written to `backend/data/grades.json`.
 

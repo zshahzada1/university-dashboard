@@ -21,6 +21,19 @@ class BlackboardClient:
     def _get(self, path: str, params: dict = None) -> dict:
         return self._bb.fetch_json(path, params)
 
+    def is_blackboard_url(self, url: str) -> bool:
+        """Relative links and links on the Blackboard host itself."""
+        host = urlparse(urljoin(self._base + "/", url)).hostname
+        return host == urlparse(self._base).hostname
+
+    @staticmethod
+    def is_sharepoint_url(url: str) -> bool:
+        return (urlparse(url).hostname or "").endswith(".sharepoint.com")
+
+    def download_sharepoint(self, url: str) -> tuple[str, bytes] | None:
+        """(file name, bytes) via the browser's Microsoft sign-in, or None if the file is gone."""
+        return self._bb.download_sharepoint(url)
+
     def download_stream(self, url: str):
         url = urljoin(self._base + "/", url)  # inline hrefs may be relative
         if urlparse(url).scheme not in ("http", "https"):

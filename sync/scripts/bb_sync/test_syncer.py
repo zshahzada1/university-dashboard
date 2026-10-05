@@ -163,6 +163,82 @@ class TestDownloadInlineAttachments(unittest.TestCase):
         self.assertTrue((Path(self.tmpdir) / "FA583 Exam Paper.pdf").exists())
 
 
+class TestPageLinkedFiles(unittest.TestCase):
+    """Files a page shows inline or links to — the cases that were silently skipped."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.client = MagicMock()
+        self.client.is_blackboard_url.side_effect = lambda u: "studentcentral" in u or u.startswith("/")
+        self.client.is_sharepoint_url.side_effect = lambda u: ".sharepoint.com" in u
+        self.syncer = Syncer(self.client, self.tmpdir)
+
+    def _resp(self):
+        r = MagicMock()
+        r.iter_content.return_value = [b"pdf"]
+        r.__enter__ = MagicMock(return_value=r)
+        r.__exit__ = MagicMock(return_value=False)
+        return r
+
+    def test_inline_only_embed_is_downloaded(self):
+        """render=inlineOnly means 'displayed in the page', not 'skip' (FN678 past papers)."""
+        import json as _json, html as _html
+        bbfile = _json.dumps({"linkName": "FN678 Final exam Q&As from previous years.pdf",
+                              "render": "inlineOnly", "isDecorative": False})
+        body = f'<a data-bbfile="{_html.escape(bbfile)}" href="https://studentcentral.brighton.ac.uk/bbcswebdav/x.pdf">x</a>'
+        self.client.download_stream.return_value = self._resp()
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.assertTrue((Path(self.tmpdir) / "FN678 Final exam Q&As from previous years.pdf").exists())
+
+    def test_decorative_inline_only_image_still_skipped(self):
+        import json as _json, html as _html
+        bbfile = _json.dumps({"linkName": "banner.png", "render": "inlineOnly", "isDecorative": True})
+        body = f'<a data-bbfile="{_html.escape(bbfile)}" href="/bbcswebdav/banner.png"></a>'
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.client.download_stream.assert_not_called()
+
+    def test_plain_document_link_on_blackboard_is_downloaded(self):
+        body = '<p><a href="/bbcswebdav/pid-1/Reading%20List.pdf">Reading List.pdf</a></p>'
+        self.client.download_stream.return_value = self._resp()
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.assertTrue((Path(self.tmpdir) / "Reading List.pdf").exists())
+
+    def test_plain_non_document_link_is_ignored(self):
+        body = '<a href="https://www.ft.com/markets">FT markets</a><a href="/ultra/course">course</a>'
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.client.download_stream.assert_not_called()
+        self.client.download_sharepoint.assert_not_called()
+
+    def test_sharepoint_link_downloads_via_browser_session(self):
+        body = ('<a href="https://unibrightonac.sharepoint.com/:w:/r/sites/cr/moduledocs/FN668.docx'
+                '?d=wabc&amp;csf=1">FN668.docx</a>')
+        self.client.download_sharepoint.return_value = ("FN668.docx", b"PK")
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.client.download_sharepoint.assert_called_once_with(
+            "https://unibrightonac.sharepoint.com/:w:/r/sites/cr/moduledocs/FN668.docx?d=wabc&csf=1")
+        self.assertEqual((Path(self.tmpdir) / "FN668.docx").read_bytes(), b"PK")
+
+    def test_sharepoint_moved_file_saved_under_real_name(self):
+        body = '<a href="https://x.sharepoint.com/sites/cr/FN668.docx">FN668.docx</a>'
+        self.client.download_sharepoint.return_value = ("FN668.pdf", b"%PDF")
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.assertTrue((Path(self.tmpdir) / "FN668.pdf").exists())
+        self.assertFalse((Path(self.tmpdir) / "FN668.docx").exists())
+
+    def test_dead_sharepoint_link_is_reported_not_fatal(self):
+        body = '<a href="https://x.sharepoint.com/sites/cr/Gone.docx">Gone.docx</a>'
+        self.client.download_sharepoint.return_value = None
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.assertEqual(self.syncer._errors, 1)
+        self.assertEqual(list(Path(self.tmpdir).iterdir()), [])
+
+    def test_document_on_other_website_is_not_downloaded(self):
+        body = '<a href="https://publisher.example.com/chapter1.pdf">chapter1.pdf</a>'
+        self.syncer._download_inline_attachments(body, Path(self.tmpdir))
+        self.client.download_stream.assert_not_called()
+        self.client.download_sharepoint.assert_not_called()
+
+
 class TestSaveBodyInlineAttachments(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
