@@ -13,6 +13,16 @@
 .loading { color: var(--muted); font-family: var(--font-mono); font-size: 0.85rem; }
 .err     { color: var(--alert); font-family: var(--font-mono); font-size: 0.85rem; }
 
+.connRow { display: flex; align-items: center; gap: 1rem; min-height: 2rem; }
+.connOk  { font-family: var(--font-mono); font-size: 0.85rem; color: var(--teal); }
+.connOff { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
+.connectBtn {
+  background: none; border: 1px solid var(--amber); border-radius: 4px;
+  color: var(--amber); font-family: var(--font-mono); font-size: 0.8rem;
+  padding: 0.3rem 0.9rem; cursor: pointer;
+}
+.connectBtn:hover { background: var(--amber); color: var(--bg-0); }
+
 .toggleRow {
   display: flex; gap: 0.5rem; margin-bottom: 0.5rem;
 }

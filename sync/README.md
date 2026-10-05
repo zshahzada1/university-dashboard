@@ -1,127 +1,91 @@
 # bb_sync
 
-Syncs files and grades from Blackboard Ultra to a local folder on WSL2. Extracts session cookies from a running Edge instance via Chrome DevTools Protocol (CDP) — no password needed after you log in once.
-
-The sync module lives at `sync/` inside the dashboard repo and is invoked by the dashboard backend's Sync page as well as directly from the terminal.
+Syncs files and grades from Blackboard Ultra into `~/University/<MODULE>/`. It's invoked by the dashboard's Sync page and can also be run from the terminal.
 
 ## How it works
 
-1. Reads Edge's session cookies via CDP (Edge must be open and logged into Blackboard)
-2. Walks the Blackboard content tree for each module using the REST API
-3. Downloads any files not already present locally (streamed to a `.tmp` file, renamed on completion)
-4. Skips files that already exist — safe to re-run at any time
-5. Syncs grade columns for all modules and writes `backend/data/grades.json`
+1. **Login.** Blackboard is driven through a dedicated [Playwright](https://playwright.dev/python/) browser profile (`~/.uni-dashboard/bb-profile`). You log in once in a visible window (`--login`); the session is saved and later runs are headless. When Blackboard's session lapses, a silent SSO round-trip is tried before asking you to log in again. Login is detected by calling `users/me`, both from inside the page and directly with the browser's cookie jar.
+2. **Browser.** Browsers are tried in this order:
+   - `BB_BROWSER_PATH`
+   - Brave (if installed)
+   - Edge
+   - Chrome
+   - Playwright's bundled Chromium, installed once on demand.
+3. **API calls.** Blackboard REST calls run as `fetch()` inside a Blackboard page, so the browser supplies the session headers Blackboard expects.
+4. **Course selection.** With no `--modules`, the current term is synced: the term with the most coded courses, with ties going to the latest year in the course titles. Courses the lecturer hasn't published yet are reported as `[not published yet]` and skipped.
+5. **Content walk.** The content tree of each selected module is walked. Attachments are streamed to a `.tmp` file and renamed on completion; document bodies are saved as `.html`.
+6. **Updates.** A per-module `.bbsync-manifest.json` records each item's Blackboard `modified` time, so files the lecturer replaces are downloaded again. Unchanged files are skipped, so it's safe to re-run at any time.
+7. **Grades.** Grades are synced for modules listed in `backend/data/assessments.json` and written to `backend/data/grades.json`.
 
-## Prerequisites
+Downloads use a cookie jar scoped to the cookies' own domains, so session cookies are never sent to third-party links embedded in course pages.
 
-| Requirement | Notes |
-|---|---|
-| uv | Installed via the dashboard Quick Start — handles Python and all deps |
-| Chrome or Edge | Must be open and logged into Blackboard |
+## Usage
 
-No manual venv setup needed — `uv run start.py` handles everything automatically.
-
-## Manual venv (development / tests only)
+Run from `sync/scripts` (the dashboard does this for you):
 
 ```bash
-cd sync/scripts
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+python -m bb_sync --login                      # open a window and log in (first time / after expiry)
+python -m bb_sync                              # current term's modules: files + grades
+python -m bb_sync --modules BY138 BY150        # specific modules: files + grades
+python -m bb_sync --modules BY138 --no-grades  # files only
+python -m bb_sync --grades                     # grades only
+python -m bb_sync --list-courses               # enrolled courses as JSON
 ```
 
-## Configuration
+Exit code `3` means "not logged in" (the dashboard shows **Connect Blackboard**).
 
-Settings are read from environment variables with defaults in `scripts/bb_sync/config.py`:
+## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `BB_BASE_URL` | `https://studentcentral.brighton.ac.uk` | Blackboard instance URL |
-| `BB_LOCAL_ROOT` | `~/University` | Root folder where course subfolders are created |
-| `BB_COOKIE_CACHE` | `~/.cache/bb_sync/cookies.json` | Cookie cache (valid 1 hour) |
-| `BB_ASSESSMENTS_PATH` | `dashboard/backend/data/assessments.json` | Assessment config for grade sync |
-| `BB_GRADES_PATH` | `dashboard/backend/data/grades.json` | Grade sync output |
+| `BB_LOCAL_ROOT` | `~/University` | Root folder where module folders are created |
+| `BB_PROFILE_DIR` | `~/.uni-dashboard/bb-profile` | Dedicated browser profile + saved session |
+| `BB_BROWSER_PATH` | *(Brave if installed)* | Chromium-based browser executable to drive |
+| `BB_SYNC_MODULES` | *(empty = current term)* | Comma-separated default module allowlist |
+| `BB_ASSESSMENTS_PATH` | `backend/data/assessments.json` | Assessment config for grade sync |
+| `BB_GRADES_PATH` | `backend/data/grades.json` | Grade sync output |
+| `BB_ASSIGNMENTS_PATH` | `backend/data/assignments.json` | Assignment statuses promoted from grades |
 
-To change which modules are synced by default, edit `SYNC_MODULES` in `scripts/bb_sync/config.py`:
+When launched from the dashboard, the backend passes its own folders through these variables.
 
-```python
-SYNC_MODULES = {"FA565", "FN585", "FA583"}
-```
+`assessments.json` maps module codes to their assessments. `course_id` is optional; it's looked up from your enrolments when omitted:
 
-## Usage
-
-**Sync specific modules (files + grades):**
-```bash
-bash sync.sh --modules FA565 FN585 FA583
-```
-
-**Sync all modules in the allowlist:**
-```bash
-bash sync.sh
-```
-
-**Grades only (all modules, no file download):**
-```bash
-bash sync.sh --grades
-```
-
-**Force re-extract cookies (if sync fails with auth errors):**
-```bash
-bash sync.sh --refresh-cookies --modules FA565 FN585 FA583
-```
-
-**List enrolled courses as JSON:**
-```bash
-bash sync.sh --list-courses
-```
-
-**Without sync.sh:**
-```bash
-cd scripts && python3 -m bb_sync --modules FA565 FN585 FA583
+```json
+{
+  "BY138": {
+    "name": "Economics", "credits": 20,
+    "assessments": [{"title": "Essay", "weight_percent": 50, "column_name": "Essay"}]
+  }
+}
 ```
 
 ## File layout
 
 ```
 sync/
-  sync.sh                    — shell wrapper (activates .venv, runs bb_sync)
-  requirements.txt           — top-level deps (mirrors scripts/bb_sync/requirements.txt)
-  scripts/
-    bb_sync/
-      __main__.py            — CLI entry point, argument parsing
-      bb_client.py           — Blackboard REST API client (persistent requests.Session)
-      config.py              — URLs, paths, module allowlist
-      cookie_extractor.py    — Edge CDP cookie extraction (4 fallback methods)
-      grades.py              — GradeSyncer: fetches and writes grade columns
-      syncer.py              — content tree walker + atomic file downloader
-      test_bb_client.py      — unit tests for BlackboardClient
-      test_syncer.py         — unit tests for Syncer and download helpers
-      requirements.txt       — Python dependencies
+  sync.sh              — shell wrapper (uses scripts/.venv if present)
+  requirements.txt     — requests, playwright, pytest
+  scripts/bb_sync/
+    __main__.py        — CLI entry point
+    bb_session.py      — Playwright browser session: login, in-page fetch, cookie jar
+    bb_client.py       — Blackboard REST API client
+    config.py          — URLs, paths, module selection
+    syncer.py          — content tree walker + manifest-aware downloader
+    grades.py          — GradeSyncer: grade columns + assignment status promotion
+    test_*.py          — unit tests
 ```
 
 ## Running tests
 
 ```bash
 cd sync/scripts/bb_sync
-python3 -m unittest discover -v
+uv run --no-project --with requests --with playwright --with pytest python -m pytest
 ```
 
 ## Troubleshooting
 
-**`Could not connect to a browser debug port` / cookie extraction fails**
-Chrome or Edge must be running with `--remote-debugging-port=9222`. The easiest fix is to close the browser and re-run `uv run start.py` — the startup wizard will relaunch it correctly. Or start the browser manually:
-```bash
-# Windows / WSL2
-msedge.exe --remote-debugging-port=9222
-# Mac
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
-```
-Then log in to Blackboard and re-run with `--refresh-cookies`.
-
-**Auth errors after a long session**
-Blackboard sessions expire. Open Edge, log in to Blackboard, then:
-```bash
-bash sync.sh --refresh-cookies --modules FA565 FN585 FA583
-```
-
-**FA565 has few downloaded files**
-Expected — most FA565 content is inline HTML rather than file attachments. The syncer saves these as `.html` files and downloads any embedded attachment links it finds inside them.
+- **"Not connected to Blackboard."** Click **Connect Blackboard** on the Sync page, or run `python -m bb_sync --login`.
+- **"Blackboard is busy."** Only one login/sync can use the browser profile at a time. Wait for the current one to finish.
+- **A module shows `[not published yet]`.** The course exists, but students can't open it yet; Blackboard returns 403. It will sync once it's published.
+- **Stuck login state.** Delete `~/.uni-dashboard/bb-profile` and connect again.

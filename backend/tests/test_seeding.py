@@ -28,7 +28,7 @@ def test_seeds_modules_topics_assignments_when_missing(tmp_path: Path):
     assert {m["code"] for m in mods} == {"FA583", "FN585", "FA565"}
     topics = json.loads(s.topics_path.read_text())
     assert any(t["title"] == "Tangible non-current assets" for t in topics["FA583"])
-    assert s.assignments_path.exists()
+    assert json.loads(s.assignments_path.read_text()) == []
     assert s.tasks_path.exists() and json.loads(s.tasks_path.read_text()) == []
     assert s.events_path.exists() and json.loads(s.events_path.read_text()) == []
 
@@ -41,3 +41,35 @@ def test_does_not_overwrite_existing(tmp_path: Path):
     ensure_seeded(s)
     import json
     assert json.loads(s.topics_path.read_text())["FA583"][0]["title"] == "keep"
+
+@pytest.mark.skip_isolate
+def test_discovers_only_module_code_folders(tmp_path: Path):
+    uni = tmp_path / "uni"
+    for name in ("BY138", "ML450", "university-dashboard-main", "Notes"):
+        (uni / name).mkdir(parents=True)
+    s = _settings(uni, tmp_path / "data")
+    ensure_seeded(s)
+    import json
+    assert [m["code"] for m in json.loads(s.modules_path.read_text())] == ["BY138", "ML450"]
+
+@pytest.mark.skip_isolate
+def test_register_modules_adds_and_names(tmp_path: Path):
+    from app.services.seeding import register_modules
+    uni = tmp_path / "uni"
+    (uni / "BY138" / "Week 1 - Markets").mkdir(parents=True)
+    (uni / "ML450").mkdir(parents=True)
+    s = _settings(uni, tmp_path / "data")
+    ensure_seeded(s)   # discovers BY138 / ML450 with placeholder names
+    import json
+    mods = json.loads(s.modules_path.read_text())
+    mods[1]["name"] = "My custom name"
+    s.modules_path.write_text(json.dumps(mods))
+    register_modules(s, [{"code": "BY138", "name": "BY138 - Economics"},
+                         {"code": "ML450", "name": "ML450 - Marketing"},
+                         {"code": "EC463", "name": "EC463 - Econometrics"}])
+    by_code = {m["code"]: m for m in json.loads(s.modules_path.read_text())}
+    assert by_code["BY138"]["name"] == "BY138 - Economics"     # placeholder replaced
+    assert by_code["ML450"]["name"] == "My custom name"        # user edit kept
+    assert by_code["EC463"]["folder"] == "EC463"
+    topics = json.loads(s.topics_path.read_text())
+    assert [t["title"] for t in topics["BY138"]] == ["Markets"]

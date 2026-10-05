@@ -1,10 +1,15 @@
 from fastapi.testclient import TestClient
 import app.main
 
-def test_list_assignments_seeded():
+_BODY = {"module_code": "FA583", "assignment_title": "Exam", "assignment_type": "Examination",
+         "deadline_date": "2026-06-01"}
+
+def test_list_assignments_starts_empty():
     with TestClient(app.main.app) as client:
         r = client.get("/api/assignments"); assert r.status_code == 200
-        assert any(a["module_code"] == "FA583" for a in r.json())
+        assert r.json() == []
+        client.post("/api/assignments", json=_BODY)
+        assert any(a["module_code"] == "FA583" for a in client.get("/api/assignments").json())
 
 def test_create_assignment():
     body = {"module_code": "FA565", "assignment_title": "Quiz",
@@ -17,13 +22,13 @@ def test_create_assignment():
 
 def test_patch_status():
     with TestClient(app.main.app) as client:
-        a = client.get("/api/assignments").json()[0]
+        a = client.post("/api/assignments", json=_BODY).json()
         r = client.patch(f"/api/assignments/{a['id']}", json={"status": "submitted"})
         assert r.status_code == 200 and r.json()["status"] == "submitted"
 
 def test_delete():
     with TestClient(app.main.app) as client:
-        a = client.get("/api/assignments").json()[0]
+        a = client.post("/api/assignments", json=_BODY).json()
         r = client.delete(f"/api/assignments/{a['id']}")
         assert r.status_code == 204
         assert not any(x["id"] == a["id"] for x in client.get("/api/assignments").json())

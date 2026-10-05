@@ -1,3 +1,5 @@
+from urllib.parse import urljoin, urlparse
+
 import requests
 from config import BB_BASE_URL
 
@@ -8,16 +10,21 @@ FOLDER_TYPES = {
 }
 
 class BlackboardClient:
-    def __init__(self, cdp):
-        self._cdp = cdp
+    def __init__(self, bb):
+        self._bb = bb
         self._base = BB_BASE_URL.rstrip("/")
         self._session = requests.Session()
-        self._session.cookies.update(cdp.get_all_cookies())
+        # Domain-scoped jar: cookies only go to hosts they belong to, never to
+        # third-party links embedded in course content.
+        self._session.cookies = bb.cookie_jar()
 
     def _get(self, path: str, params: dict = None) -> dict:
-        return self._cdp.fetch_json(path, params)
+        return self._bb.fetch_json(path, params)
 
     def download_stream(self, url: str):
+        url = urljoin(self._base + "/", url)  # inline hrefs may be relative
+        if urlparse(url).scheme not in ("http", "https"):
+            raise ValueError(f"refusing non-HTTP download URL: {url}")
         return self._session.get(url, stream=True, allow_redirects=True, timeout=60)
 
     def get_current_user(self) -> dict:
@@ -39,6 +46,8 @@ class BlackboardClient:
                 "name": course.get("name", ""),
                 "courseId": course.get("courseId", ""),
                 "term_id": course.get("termId") or enrollment.get("termId") or "",
+                # False when the lecturer hasn't published the course to students yet
+                "available": (course.get("availability") or {}).get("available", "Yes") != "No",
             })
         return results
 
@@ -93,12 +102,35 @@ class BlackboardClient:
                 f"/learn/api/public/v2/courses/{course_id}"
                 f"/gradebook/columns/{column_id}/users/{user_id}"
             )
-            score = data.get("score") or (data.get("displayGrade") or {}).get("score")
+            score = data.get("score")
+            if score is None:  # `or` would discard a genuine 0
+                score = (data.get("displayGrade") or {}).get("score")
             return {"score": score, "bb_status": data.get("status")}
         except requests.HTTPError as e:
             if e.response.status_code in (403, 404):
                 return {"score": None, "bb_status": None}
             raise
+
+    def get_user_grades(self, course_id: str, user_id: str) -> dict | None:
+        """All of a user's grades in one call: {column_id: {score, bb_status}}, or None on 403/404."""
+        path = f"/learn/api/public/v2/courses/{course_id}/gradebook/users/{user_id}"
+        params = {"limit": 200}
+        out: dict = {}
+        try:
+            while path:
+                data = self._get(path, params=params)
+                for g in data.get("results", []):
+                    score = g.get("score")
+                    if score is None:
+                        score = (g.get("displayGrade") or {}).get("score")
+                    out[g.get("columnId")] = {"score": score, "bb_status": g.get("status")}
+                path = (data.get("paging") or {}).get("nextPage")
+                params = {}
+        except requests.HTTPError as e:
+            if e.response.status_code in (403, 404):
+                return None
+            raise
+        return out
 
     def get_content_body(self, course_id: str, content_id: str) -> str:
         try:

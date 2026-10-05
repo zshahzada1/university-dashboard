@@ -1,7 +1,7 @@
 # CDP Fetch Proxy — Design Spec
 
 **Date:** 2026-05-25  
-**Status:** Approved  
+**Status:** Superseded by [2026-10-05-playwright-session-design.md](2026-10-05-playwright-session-design.md)  
 **Problem:** Blackboard REST API returns 401 when Python `requests` replays cookies extracted via CDP. Root cause is missing CSRF/session headers that the browser manages automatically.
 
 ---

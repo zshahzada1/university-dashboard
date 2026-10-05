@@ -3,7 +3,12 @@ from pathlib import Path
 from importlib import reload
 
 @pytest.fixture(autouse=True)
-def _isolated_data(request, tmp_path, monkeypatch):
+def _test_host(monkeypatch):
+    # TestClient sends Host: testserver, which the TrustedHost middleware must accept.
+    monkeypatch.setenv("UNI_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+
+@pytest.fixture(autouse=True)
+def _isolated_data(request, tmp_path, monkeypatch, _test_host):
     if request.node.get_closest_marker("skip_isolate"):
         yield
         return

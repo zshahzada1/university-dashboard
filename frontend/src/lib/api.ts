@@ -1,10 +1,18 @@
 import type { Module, Topic, Assignment, Task, Event, SearchHit, TopicsByModule, GradesResponse, SyncCourse, TreeNode } from './types'
 
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function j<T>(r: Response): Promise<T> {
   if (!r.ok) {
     let msg = `${r.status} ${r.statusText}`
     try { const b = await r.json(); if (b?.detail) msg = String(b.detail) } catch { /* keep default */ }
-    throw new Error(msg)
+    throw new ApiError(r.status, msg)
   }
   if (r.status === 204) return undefined as T
   return r.json()
@@ -73,14 +81,15 @@ export const api = {
   grades: () => fetch('/api/grades').then(j<GradesResponse>),
 
   syncCourses: () => fetch('/api/sync/courses').then(j<SyncCourse[]>),
+  bbLogin: () => fetch('/api/bb/login', { method: 'POST' }).then(j<{ user: string | null }>),
 
-  syncRun: async (modules: string[], mode: string, onLine: (line: string) => void): Promise<void> => {
+  syncRun: async (modules: string[], mode: 'all' | 'files' | 'grades', onLine: (line: string) => void): Promise<void> => {
     const r = await fetch('/api/sync/run', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ modules, mode }),
     })
-    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+    if (!r.ok) await j<void>(r)
     if (!r.body) throw new Error('Server returned no response body for sync stream')
     for await (const line of _readSSE(r.body)) {
       onLine(line)

@@ -6,6 +6,9 @@ dependencies = [
   "fastapi>=0.110",
   "uvicorn[standard]>=0.27",
   "pydantic>=2.6",
+  # used by the bb_sync subprocess, which runs on this interpreter
+  "requests>=2.31",
+  "playwright>=1.45",
 ]
 
 [project.optional-dependencies]

@@ -20,37 +20,63 @@ MOCK_ATTACHMENTS = {"results": [
     {"id": "_99_1", "fileName": "week1.pdf", "mimeType": "application/pdf"}
 ]}
 
-class TestBlackboardClientWithCdp(unittest.TestCase):
-    def _make_cdp(self, fetch_return=None, cookies=None):
-        cdp = MagicMock()
-        cdp.fetch_json.return_value = fetch_return or {}
-        cdp.get_all_cookies.return_value = cookies or {"BbRouter": "fake"}
-        return cdp
+def _jar(cookies=None, domain="studentcentral.brighton.ac.uk"):
+    jar = requests.cookies.RequestsCookieJar()
+    for k, v in (cookies or {"BbRouter": "fake"}).items():
+        jar.set(k, v, domain=domain, path="/")
+    return jar
 
-    def test_constructor_seeds_session_from_cdp_cookies(self):
-        cdp = self._make_cdp(cookies={"BbRouter": "abc123"})
-        client = BlackboardClient(cdp)
+
+class TestBlackboardClientWithSession(unittest.TestCase):
+    def _make_bb(self, fetch_return=None, cookies=None):
+        bb = MagicMock()
+        bb.fetch_json.return_value = fetch_return or {}
+        bb.cookie_jar.return_value = _jar(cookies)
+        return bb
+
+    def test_constructor_seeds_session_from_browser_cookies(self):
+        bb = self._make_bb(cookies={"BbRouter": "abc123"})
+        client = BlackboardClient(bb)
         self.assertEqual(client._session.cookies.get("BbRouter"), "abc123")
 
+    def test_cookies_are_not_sent_to_other_hosts(self):
+        client = BlackboardClient(self._make_bb(cookies={"BbRouter": "secret"}))
+        own = requests.Request("GET", "https://studentcentral.brighton.ac.uk/bbcswebdav/x.pdf")
+        other = requests.Request("GET", "https://evil.example.com/x.pdf")
+        self.assertIn("BbRouter=secret", client._session.prepare_request(own).headers.get("Cookie", ""))
+        self.assertNotIn("Cookie", client._session.prepare_request(other).headers)
+
+    def test_download_stream_resolves_relative_urls(self):
+        client = BlackboardClient(self._make_bb())
+        with patch.object(client._session, "get") as get:
+            client.download_stream("/bbcswebdav/pid-1/x.pdf")
+        self.assertEqual(get.call_args[0][0],
+                         "https://studentcentral.brighton.ac.uk/bbcswebdav/pid-1/x.pdf")
+
+    def test_download_stream_rejects_non_http(self):
+        client = BlackboardClient(self._make_bb())
+        with self.assertRaises(ValueError):
+            client.download_stream("file:///etc/passwd")
+
     def test_get_delegates_to_fetch_json(self):
-        cdp = self._make_cdp(fetch_return={"id": "u1"})
-        client = BlackboardClient(cdp)
+        bb = self._make_bb(fetch_return={"id": "u1"})
+        client = BlackboardClient(bb)
         result = client._get("/learn/api/public/v1/users/me")
-        cdp.fetch_json.assert_called_once_with("/learn/api/public/v1/users/me", None)
+        bb.fetch_json.assert_called_once_with("/learn/api/public/v1/users/me", None)
         self.assertEqual(result["id"], "u1")
 
     def test_get_passes_params_to_fetch_json(self):
-        cdp = self._make_cdp(fetch_return={"results": []})
-        client = BlackboardClient(cdp)
+        bb = self._make_bb(fetch_return={"results": []})
+        client = BlackboardClient(bb)
         client._get("/learn/api/public/v1/courses", {"limit": 200})
-        cdp.fetch_json.assert_called_once_with("/learn/api/public/v1/courses", {"limit": 200})
+        bb.fetch_json.assert_called_once_with("/learn/api/public/v1/courses", {"limit": 200})
 
 
 class TestBlackboardClient(unittest.TestCase):
     def _make_client(self):
-        cdp = MagicMock()
-        cdp.get_all_cookies.return_value = {"BbRouter": "fake", "JSESSIONID": "fake"}
-        return BlackboardClient(cdp)
+        bb = MagicMock()
+        bb.cookie_jar.return_value = _jar({"BbRouter": "fake", "JSESSIONID": "fake"})
+        return BlackboardClient(bb)
 
     def _mock_resp(self, data):
         mock_resp = MagicMock()
@@ -60,26 +86,26 @@ class TestBlackboardClient(unittest.TestCase):
 
     def test_get_current_user(self):
         client = self._make_client()
-        client._cdp.fetch_json.return_value = MOCK_ME
+        client._bb.fetch_json.return_value = MOCK_ME
         user = client.get_current_user()
         self.assertEqual(user["id"], "_123_1")
 
     def test_get_courses(self):
         client = self._make_client()
-        client._cdp.fetch_json.return_value = MOCK_COURSES
+        client._bb.fetch_json.return_value = MOCK_COURSES
         courses = client.get_courses("_123_1")
         self.assertEqual(len(courses), 2)
         self.assertEqual(courses[0]["courseId"], "FN585")
 
     def test_get_contents(self):
         client = self._make_client()
-        client._cdp.fetch_json.return_value = MOCK_CONTENTS
+        client._bb.fetch_json.return_value = MOCK_CONTENTS
         contents = client.get_contents("_1_1")
         self.assertEqual(len(contents), 2)
 
     def test_get_attachments(self):
         client = self._make_client()
-        client._cdp.fetch_json.return_value = MOCK_ATTACHMENTS
+        client._bb.fetch_json.return_value = MOCK_ATTACHMENTS
         attachments = client.get_attachments("_1_1", "_10_1")
         self.assertEqual(attachments[0]["fileName"], "week1.pdf")
 
@@ -106,7 +132,7 @@ class TestBlackboardClient(unittest.TestCase):
              "course": {"id": "_2_1", "courseId": "FA565", "name": "FA565"}},
         ]}
         client = self._make_client()
-        client._cdp.fetch_json.return_value = mock_data
+        client._bb.fetch_json.return_value = mock_data
         courses = client.get_courses("_123_1")
         self.assertEqual(len(courses), 1)
         self.assertEqual(courses[0]["courseId"], "FA565")
@@ -150,9 +176,9 @@ MOCK_GRADE = {"score": 68.0, "status": "Graded"}
 
 class TestBlackboardClientGradebook(unittest.TestCase):
     def _make_client(self):
-        cdp = MagicMock()
-        cdp.get_all_cookies.return_value = {"BbRouter": "fake", "JSESSIONID": "fake"}
-        return BlackboardClient(cdp)
+        bb = MagicMock()
+        bb.cookie_jar.return_value = _jar({"BbRouter": "fake", "JSESSIONID": "fake"})
+        return BlackboardClient(bb)
 
     def test_get_gradebook_columns_success(self):
         client = self._make_client()
@@ -196,6 +222,29 @@ class TestBlackboardClientGradebook(unittest.TestCase):
         with patch.object(client, '_get', side_effect=err):
             grade = client.get_column_grade("_130565_1", "_col1_1", "_user_1")
         self.assertIsNone(grade["bb_status"])
+
+    def test_get_column_grade_keeps_zero_score(self):
+        client = self._make_client()
+        with patch.object(client, '_get', return_value={"score": 0.0, "displayGrade": {"score": 55.0}}):
+            grade = client.get_column_grade("_1_1", "_col1_1", "_user_1")
+        self.assertEqual(grade["score"], 0.0)
+
+    def test_get_user_grades_maps_by_column(self):
+        client = self._make_client()
+        data = {"results": [
+            {"columnId": "_col1_1", "score": 68.0, "status": "Graded"},
+            {"columnId": "_col2_1", "status": "NeedsGrading"},
+        ]}
+        with patch.object(client, '_get', return_value=data):
+            grades = client.get_user_grades("_1_1", "_user_1")
+        self.assertEqual(grades["_col1_1"], {"score": 68.0, "bb_status": "Graded"})
+        self.assertEqual(grades["_col2_1"], {"score": None, "bb_status": "NeedsGrading"})
+
+    def test_get_user_grades_403_returns_none(self):
+        client = self._make_client()
+        err = requests.HTTPError(response=MagicMock(status_code=403))
+        with patch.object(client, '_get', side_effect=err):
+            self.assertIsNone(client.get_user_grades("_1_1", "_user_1"))
 
     def test_get_column_grade_ungraded_returns_none_score(self):
         client = self._make_client()

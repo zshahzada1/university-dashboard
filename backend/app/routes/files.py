@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from app.services.store import JsonStore
-from app.settings import load_settings
+from app.settings import REPO_ROOT, load_settings
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -20,7 +20,7 @@ def _build_tree(path: Path, root: Path, depth: int = 0, max_depth: int = 5) -> l
             if child.name.startswith("."):
                 continue
             if child.is_dir():
-                if child.name not in _TREE_SKIP:
+                if child.name not in _TREE_SKIP and child.resolve() != REPO_ROOT:
                     dirs.append(child)
             elif child.is_file() and child.name not in _TREE_SKIP_FILES:
                 files.append(child)
@@ -38,7 +38,7 @@ def _build_tree(path: Path, root: Path, depth: int = 0, max_depth: int = 5) -> l
             "name": f.name,
             "type": "file",
             "size": f.stat().st_size,
-            "rel_path": str(f.relative_to(root)),
+            "rel_path": f.relative_to(root).as_posix(),
         })
     return items
 
@@ -69,5 +69,7 @@ def list_files(module: str, topic_id: str):
     for p in sorted(folder.rglob("*")):
         if p.is_file():
             rel = p.relative_to(s.university_dir)
-            out.append({"name": p.name, "rel_path": str(rel), "size": p.stat().st_size})
+            if p.name.startswith("."):
+                continue
+            out.append({"name": p.name, "rel_path": rel.as_posix(), "size": p.stat().st_size})
     return out

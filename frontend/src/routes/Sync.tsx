@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import type { SyncCourse } from '../lib/types'
 import s from './Sync.module.css'
 
 type Mode = 'all' | 'files' | 'grades'
+type Conn = 'checking' | 'connected' | 'disconnected' | 'connecting'
+
+// bb_sync exit code for "no valid Blackboard session"
+const EXIT_NOT_LOGGED_IN = 3
 
 function detectCurrentYearCodes(courses: SyncCourse[]): Set<string> {
   // Strategy 1: group by term_id, pick the term with the most coded courses
@@ -14,7 +18,12 @@ function detectCurrentYearCodes(courses: SyncCourse[]): Set<string> {
       termCounts[c.term_id].push(c.code)
     }
   }
-  const byTermSize = Object.entries(termCounts).sort(([, a], [, b]) => b.length - a.length)
+  // Most courses wins; ties go to the term whose titles carry the latest year
+  const latestYear = (codes: string[]) => Math.max(0, ...courses
+    .filter(c => c.code && codes.includes(c.code))
+    .flatMap(c => (c.name.match(/\b20\d\d\b/g) ?? []).map(Number)))
+  const byTermSize = Object.entries(termCounts)
+    .sort(([, a], [, b]) => b.length - a.length || latestYear(b) - latestYear(a))
   if (byTermSize.length > 0) return new Set(byTermSize[0][1])
 
   // Strategy 2: match current UK academic year pattern in course name (e.g. "2025/26")
@@ -33,20 +42,43 @@ function detectCurrentYearCodes(courses: SyncCourse[]): Set<string> {
 export default function Sync() {
   const [courses, setCourses]   = useState<SyncCourse[] | null>(null)
   const [fetchErr, setFetchErr] = useState<string | null>(null)
+  const [conn, setConn]         = useState<Conn>('checking')
+  const [user, setUser]         = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [mode, setMode]         = useState<Mode>('all')
   const [running, setRunning]   = useState(false)
   const [lines, setLines]       = useState<{ text: string; cls?: string }[]>([])
   const termRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  function loadCourses() {
+    setConn('checking')
+    setFetchErr(null)
     api.syncCourses()
       .then(cs => {
         setCourses(cs)
         setSelected(detectCurrentYearCodes(cs))
+        setConn('connected')
       })
-      .catch(e => setFetchErr(String(e)))
-  }, [])
+      .catch(e => {
+        if (e instanceof ApiError && e.status === 401) setConn('disconnected')
+        else { setConn('disconnected'); setFetchErr(e instanceof Error ? e.message : String(e)) }
+      })
+  }
+
+  useEffect(loadCourses, [])
+
+  async function connect() {
+    setConn('connecting')
+    setFetchErr(null)
+    try {
+      const r = await api.bbLogin()
+      setUser(r.user)
+      loadCourses()
+    } catch (e) {
+      setConn('disconnected')
+      setFetchErr(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   useEffect(() => {
     if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight
@@ -71,7 +103,8 @@ export default function Sync() {
   function toggleOne(code: string) {
     setSelected(prev => {
       const next = new Set(prev)
-      next.has(code) ? next.delete(code) : next.add(code)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
       return next
     })
   }
@@ -86,11 +119,14 @@ export default function Sync() {
         if (line.startsWith('__exit__:')) {
           const raw = line.split(':')[1]
           const code = parseInt(raw, 10)
+          if (code === EXIT_NOT_LOGGED_IN) setConn('disconnected')
           setLines(l => [...l, code === 0
             ? { text: 'Done.', cls: s.done }
-            : isNaN(code)
-              ? { text: 'Sync cancelled.', cls: s.failed }
-              : { text: `Sync failed (exit ${code}).`, cls: s.failed },
+            : code === EXIT_NOT_LOGGED_IN
+              ? { text: 'Blackboard session expired — click Connect Blackboard above.', cls: s.failed }
+              : isNaN(code)
+                ? { text: 'Sync cancelled.', cls: s.failed }
+                : { text: `Sync failed (exit ${code}).`, cls: s.failed },
           ])
         } else {
           setLines(l => [...l, { text: line }])
@@ -104,16 +140,38 @@ export default function Sync() {
   }
 
   const noneSelected = selected.size === 0 && mode !== 'grades'
-  const canRun = !running && !!courses && !noneSelected
+  const canRun = !running && conn === 'connected' && !!courses && !noneSelected
 
   return (
     <>
       <h1 className={s.h1}>Sync</h1>
 
       <div className={s.section}>
+        <div className={s.label}>Blackboard</div>
+        <div className={s.connRow}>
+          {conn === 'checking' && <span className={s.loading}>Checking your Blackboard session…</span>}
+          {conn === 'connected' && (
+            <span className={s.connOk}>● Connected{user ? ` as ${user}` : ''}</span>
+          )}
+          {conn === 'disconnected' && (
+            <>
+              <span className={s.connOff}>● Not connected</span>
+              <button className={s.connectBtn} onClick={connect}>Connect Blackboard</button>
+            </>
+          )}
+          {conn === 'connecting' && (
+            <span className={s.loading}>
+              A browser window has opened. Log in to Blackboard there; this page continues automatically.
+            </span>
+          )}
+        </div>
+        {fetchErr && <div className={s.err}>{fetchErr}</div>}
+      </div>
+
+      <div className={s.section}>
         <div className={s.label}>Modules</div>
-        {!courses && !fetchErr && <div className={s.loading}>Fetching from Blackboard…</div>}
-        {fetchErr && <div className={s.err}>Could not load modules: {fetchErr}</div>}
+        {!courses && conn === 'checking' && <div className={s.loading}>Fetching from Blackboard…</div>}
+        {!courses && conn !== 'checking' && <div className={s.loading}>Connect to Blackboard to list your modules.</div>}
         {courses && (
           <>
             <div className={s.toggleRow}>

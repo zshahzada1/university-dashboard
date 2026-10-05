@@ -1,66 +1,91 @@
 from __future__ import annotations
 import re
+from pathlib import Path
 from app.services.store import JsonStore
 from app.services.folder_scan import scan_module_topics
 from app.settings import Settings
 
-DEFAULT_MODULES = [
-    {"code": "FA583", "name": "Financial Accounting and Reporting", "color": "#2F5040", "folder": "FA583"},
-    {"code": "FN585", "name": "Financial Modelling and Dealing",    "color": "#5E2D44", "folder": "FN585"},
-    {"code": "FA565", "name": "Business Ethics and Corp Governance","color": "#2C4E80", "folder": "FA565"},
-]
+MODULE_CODE_RE = re.compile(r"^[A-Z]{2,4}\d{3,4}$")
 
-DEFAULT_ASSIGNMENTS = [
-    {"id": "fa565-essay-2", "module_code": "FA565",
-     "assignment_title": "Task 2 — Analytical Essay", "assignment_type": "Essay",
-     "description": "Analytical essay on a UK listed company's governance practices.",
-     "deadline_date": "2026-05-15", "deadline_time": "14:00",
-     "weighting_percent": 50, "word_limit_or_size": "1,500 words",
-     "submission_method": "Turnitin", "status": "upcoming", "linked_topics": []},
-    {"id": "fn585-coursework", "module_code": "FN585",
-     "assignment_title": "Coursework Assignment", "assignment_type": "Financial Modelling",
-     "description": "Implement an algorithm to exploit market inefficiency.",
-     "deadline_date": "2026-05-25", "deadline_time": "23:59",
-     "weighting_percent": 50, "word_limit_or_size": "Single PDF",
-     "submission_method": "MyStudies", "status": "upcoming", "linked_topics": []},
-    {"id": "fa583-final-exam", "module_code": "FA583",
-     "assignment_title": "Final Exam", "assignment_type": "Examination",
-     "description": "Final examination for FA583. Based on the June 2026 Exam Syllabus.",
-     "deadline_date": "2026-06-01", "deadline_time": "09:30",
-     "weighting_percent": 70, "word_limit_or_size": "3 Hours",
-     "submission_method": "In-person Exam", "status": "upcoming", "linked_topics": []},
-]
+# Muted palette cycled for newly discovered modules.
+PALETTE = ["#2F5040", "#5E2D44", "#2C4E80", "#7A5B1E", "#3E3A6E", "#1F5E5B",
+           "#6B3A2A", "#4A5A23", "#5A2E6B", "#2D5566"]
 
-def _slugify(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+def _color(i: int) -> str:
+    return PALETTE[i % len(PALETTE)]
 
-def _seed_topics(modules: list[dict], uni_dir) -> dict:
-    out: dict[str, list[dict]] = {}
-    for m in modules:
-        mdir = uni_dir / m["folder"]
-        topics = scan_module_topics(mdir)
-        seeded = []
-        for i, t in enumerate(topics, 1):
-            tid = f"{m['code'].lower()}-t{i:02d}"
-            seeded.append({"id": tid, "title": t["title"], "week": t["week"],
-                           "folder": t["folder"], "confidence": None, "updated_at": None})
-        out[m["code"]] = seeded
+def discover_modules(uni_dir: Path) -> list[dict]:
+    """One module per folder in the university dir named like a module code (e.g. BY138)."""
+    if not uni_dir.exists():
+        return []
+    codes = sorted(p.name for p in uni_dir.iterdir() if p.is_dir() and MODULE_CODE_RE.match(p.name))
+    return [{"code": c, "name": c, "color": _color(i), "folder": c} for i, c in enumerate(codes)]
+
+def _new_topics(module: dict, existing: list[dict], uni_dir: Path) -> list[dict]:
+    """Topic entries for topic folders not yet tracked, with ids that don't collide."""
+    existing_folders = {t["folder"] for t in existing}
+    existing_ids = {t["id"] for t in existing}
+    index = len(existing)
+    out = []
+    for parsed in scan_module_topics(uni_dir / module["folder"]):
+        if parsed["folder"] in existing_folders:
+            continue
+        index += 1
+        tid = f"{module['code'].lower()}-t{index:02d}"
+        while tid in existing_ids:
+            index += 1
+            tid = f"{module['code'].lower()}-t{index:02d}"
+        existing_ids.add(tid)
+        out.append({"id": tid, "title": parsed["title"], "week": parsed["week"],
+                    "folder": parsed["folder"], "confidence": None, "updated_at": None})
     return out
+
+def reseed_topics(settings: Settings) -> dict:
+    """Add topics for any new topic folders across all modules; existing topics are kept."""
+    modules = JsonStore(settings.modules_path, default=[]).read()
+    store = JsonStore(settings.topics_path, default={})
+    data = store.read()
+    for m in modules:
+        current = data.setdefault(m["code"], [])
+        current.extend(_new_topics(m, current, settings.university_dir))
+    store.write(data)
+    return data
+
+def register_modules(settings: Settings, courses: list[dict]) -> list[dict]:
+    """Add synced Blackboard courses ({code, name}) to modules.json and pick up their topics.
+
+    Existing entries keep their colour and any name the user set; a placeholder name
+    (the bare code, from folder discovery) is replaced by the Blackboard course title.
+    """
+    store = JsonStore(settings.modules_path, default=[])
+    modules = store.read()
+    by_code = {m["code"]: m for m in modules}
+    for c in courses:
+        code, name = c.get("code"), (c.get("name") or "").strip()
+        if not code:
+            continue
+        if code in by_code:
+            if by_code[code]["name"] == code and name:
+                by_code[code]["name"] = name
+            continue
+        entry = {"code": code, "name": name or code, "color": _color(len(modules)), "folder": code}
+        modules.append(entry)
+        by_code[code] = entry
+    store.write(modules)
+    reseed_topics(settings)
+    return modules
 
 def ensure_seeded(settings: Settings) -> None:
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    modules_store = JsonStore(settings.modules_path, default=DEFAULT_MODULES)
     if not settings.modules_path.exists():
-        modules_store.write(DEFAULT_MODULES)
-    modules = modules_store.read()
+        JsonStore(settings.modules_path, default=[]).write(discover_modules(settings.university_dir))
 
     if not settings.topics_path.exists():
-        JsonStore(settings.topics_path, default={}).write(_seed_topics(modules, settings.university_dir))
+        JsonStore(settings.topics_path, default={}).write({})
+        reseed_topics(settings)
 
-    if not settings.assignments_path.exists():
-        JsonStore(settings.assignments_path, default=[]).write(DEFAULT_ASSIGNMENTS)
-
-    for p, default in [(settings.tasks_path, []),
+    for p, default in [(settings.assignments_path, []),
+                       (settings.tasks_path, []),
                        (settings.events_path, []),
                        (settings.state_path, {})]:
         if not p.exists():

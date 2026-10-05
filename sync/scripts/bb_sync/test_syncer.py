@@ -53,6 +53,48 @@ class TestSyncer(unittest.TestCase):
         syncer.sync_course("_1_1", "FN585 - Corporate Finance", new_folder)
         self.assertTrue(os.path.isdir(new_folder))
 
+class TestManifest(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.client = MagicMock()
+        self.client.download_url.return_value = "https://fake/download"
+        self.client.is_folder.return_value = False
+        self.client.get_attachments.return_value = [{"id": "_a_1", "fileName": "slides.pdf"}]
+
+    def _resp(self, data):
+        r = MagicMock()
+        r.iter_content.return_value = [data]
+        r.__enter__ = MagicMock(return_value=r)
+        r.__exit__ = MagicMock(return_value=False)
+        return r
+
+    def _sync(self, modified):
+        self.client.get_contents.return_value = [{"id": "_c_1", "title": "Week 1", "modified": modified}]
+        Syncer(self.client, self.tmpdir).sync_course("_1_1", "FA565", self.tmpdir)
+
+    def test_redownloads_when_blackboard_item_changes(self):
+        self.client.download_stream.return_value = self._resp(b"v1")
+        self._sync("2026-01-01T00:00:00Z")
+        self.client.download_stream.return_value = self._resp(b"v2")
+        self._sync("2026-01-01T00:00:00Z")   # unchanged -> skip
+        self.assertEqual((Path(self.tmpdir) / "slides.pdf").read_bytes(), b"v1")
+        self._sync("2026-02-01T00:00:00Z")   # lecturer re-uploaded
+        self.assertEqual((Path(self.tmpdir) / "slides.pdf").read_bytes(), b"v2")
+
+    def test_existing_file_without_manifest_is_adopted(self):
+        (Path(self.tmpdir) / "slides.pdf").write_bytes(b"old")
+        self._sync("2026-01-01T00:00:00Z")
+        self.client.download_stream.assert_not_called()
+
+    def test_one_failing_item_does_not_abort_course(self):
+        self.client.get_contents.return_value = [
+            {"id": "_c_1", "title": "Bad"}, {"id": "_c_2", "title": "Good"}]
+        self.client.get_attachments.side_effect = [RuntimeError("boom"), [{"id": "_a_2", "fileName": "ok.pdf"}]]
+        self.client.download_stream.return_value = self._resp(b"x")
+        Syncer(self.client, self.tmpdir).sync_course("_1_1", "FA565", self.tmpdir)
+        self.assertTrue((Path(self.tmpdir) / "ok.pdf").exists())
+
+
 class TestDownloadInlineAttachments(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()

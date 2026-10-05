@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, threading
+import json, os, sys, threading, time
 from pathlib import Path
 from typing import Any
 
@@ -31,4 +31,15 @@ class JsonStore:
         with _lock_for(self.path):
             tmp = self.path.with_suffix(self.path.suffix + ".tmp")
             tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-            os.replace(tmp, self.path)
+            _replace(tmp, self.path)
+
+def _replace(src: Path, dst: Path, attempts: int = 10) -> None:
+    """os.replace, retried on Windows where antivirus/indexers briefly lock just-written files."""
+    for i in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if sys.platform != "win32" or i == attempts - 1:
+                raise
+            time.sleep(0.02 * (i + 1))

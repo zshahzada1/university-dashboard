@@ -1,6 +1,7 @@
 import sys, json, unittest, copy
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import requests
 sys.path.insert(0, '.')
 
 ASSESSMENTS = {
@@ -36,16 +37,59 @@ ASSIGNMENTS_FOR_PROMOTE = [
     }
 ]
 
+# Bulk grades endpoint unavailable -> GradeSyncer falls back to per-column lookups.
+_NOT_FOUND = requests.HTTPError(response=MagicMock(status_code=404))
+
+
 class TestGradeSyncer(unittest.TestCase):
+    def _client(self):
+        from bb_client import BlackboardClient
+        bb = MagicMock()
+        bb.fetch_json.side_effect = _NOT_FOUND
+        return BlackboardClient(bb)
+
+    def test_uses_bulk_grades_when_available(self):
+        import tempfile
+        from grades import GradeSyncer
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            client = self._client()
+            (tmp / "a.json").write_text(json.dumps(ASSESSMENTS))
+            syncer = GradeSyncer(client, tmp / "a.json", tmp / "g.json")
+            bulk = {"_col1_1": {"score": 55.0, "bb_status": "Graded"}}
+            with (patch.object(client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+                  patch.object(client, 'get_user_grades', return_value=bulk),
+                  patch.object(client, 'get_column_grade') as per_col):
+                syncer.sync("_user_1", modules=["FA565"])
+            per_col.assert_not_called()
+            cols = json.loads((tmp / "g.json").read_text())["FA565"]["columns"]
+            self.assertEqual(cols[0]["score"], 55.0)
+            self.assertIsNone(cols[1]["score"])
+
+    def test_course_id_filled_from_course_list(self):
+        import tempfile
+        from grades import GradeSyncer
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            cfg = copy.deepcopy(ASSESSMENTS)
+            del cfg["FA565"]["course_id"]
+            (tmp / "a.json").write_text(json.dumps(cfg))
+            client = self._client()
+            syncer = GradeSyncer(client, tmp / "a.json", tmp / "g.json")
+            with patch.object(client, 'get_gradebook_columns', return_value=[]) as cols:
+                syncer.sync("_user_1", modules=["FA565"],
+                            courses=[{"id": "_777_1", "name": "FA565 - Business Ethics"}])
+            cols.assert_called_once_with("_777_1")
+
     def test_sync_writes_grades_json(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            mock_cdp = MagicMock()
-            mock_cdp.get_all_cookies.return_value = {}
-            client = BlackboardClient(mock_cdp)
+            mock_bb = MagicMock()
+            mock_bb.fetch_json.side_effect = _NOT_FOUND
+            client = BlackboardClient(mock_bb)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -70,9 +114,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            mock_cdp = MagicMock()
-            mock_cdp.get_all_cookies.return_value = {}
-            client = BlackboardClient(mock_cdp)
+            mock_bb = MagicMock()
+            mock_bb.fetch_json.side_effect = _NOT_FOUND
+            client = BlackboardClient(mock_bb)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -88,9 +132,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            mock_cdp = MagicMock()
-            mock_cdp.get_all_cookies.return_value = {}
-            client = BlackboardClient(mock_cdp)
+            mock_bb = MagicMock()
+            mock_bb.fetch_json.side_effect = _NOT_FOUND
+            client = BlackboardClient(mock_bb)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -106,9 +150,9 @@ class TestGradeSyncer(unittest.TestCase):
             tmp = Path(d)
             from grades import GradeSyncer
             from bb_client import BlackboardClient
-            mock_cdp = MagicMock()
-            mock_cdp.get_all_cookies.return_value = {}
-            client = BlackboardClient(mock_cdp)
+            mock_bb = MagicMock()
+            mock_bb.fetch_json.side_effect = _NOT_FOUND
+            client = BlackboardClient(mock_bb)
             assessments_path = tmp / "assessments.json"
             assessments_path.write_text(json.dumps(ASSESSMENTS))
             grades_path = tmp / "grades.json"
@@ -129,9 +173,9 @@ class TestPromoteStatuses(unittest.TestCase):
         import tempfile
         self.d = tempfile.TemporaryDirectory()
         self.tmp = Path(self.d.name)
-        mock_cdp = MagicMock()
-        mock_cdp.get_all_cookies.return_value = {}
-        self.client = BlackboardClient(mock_cdp)
+        mock_bb = MagicMock()
+        mock_bb.fetch_json.side_effect = _NOT_FOUND
+        self.client = BlackboardClient(mock_bb)
         self.assessments_path = self.tmp / "assessments.json"
         self.assessments_path.write_text(json.dumps(ASSESSMENTS))
         self.grades_path = self.tmp / "grades.json"
@@ -174,6 +218,29 @@ class TestPromoteStatuses(unittest.TestCase):
             syncer.sync("_user_1", modules=["FA565"])
         updated = json.loads(self.assignments_path.read_text())
         self.assertEqual(updated[0]["status"], "graded")
+
+    def test_same_weighting_does_not_drop_assignments(self):
+        """Two assignments sharing a weighting must both survive promotion."""
+        from grades import GradeSyncer
+        cfg = copy.deepcopy(ASSESSMENTS)
+        cfg["FA565"]["assessments"] = [
+            {"title": "Task 1", "weight_percent": 50, "column_name": "Task 1"},
+            {"title": "Task 2", "weight_percent": 50, "column_name": "Task 2"},
+        ]
+        self.assessments_path.write_text(json.dumps(cfg))
+        assignments = [
+            {"id": "a1", "module_code": "FA565", "assignment_title": "Task 1", "weighting_percent": 50, "status": "upcoming"},
+            {"id": "a2", "module_code": "FA565", "assignment_title": "Task 2", "weighting_percent": 50, "status": "upcoming"},
+            {"id": "x", "module_code": "FN585", "assignment_title": "Other", "weighting_percent": 50, "status": "upcoming"},
+        ]
+        self.assignments_path.write_text(json.dumps(assignments))
+        syncer = GradeSyncer(self.client, self.assessments_path, self.grades_path, self.assignments_path)
+        with (patch.object(self.client, 'get_gradebook_columns', return_value=COLUMNS_FA565),
+              patch.object(self.client, 'get_column_grade',
+                           side_effect=[{"score": 70.0, "bb_status": "Graded"}, {"score": None, "bb_status": "NeedsGrading"}])):
+            syncer.sync("_user_1", modules=["FA565"])
+        updated = {a["id"]: a["status"] for a in json.loads(self.assignments_path.read_text())}
+        self.assertEqual(updated, {"a1": "graded", "a2": "submitted", "x": "upcoming"})
 
     def test_noop_when_no_assignments_path(self):
         from grades import GradeSyncer

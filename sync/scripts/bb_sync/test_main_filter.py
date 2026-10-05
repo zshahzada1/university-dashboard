@@ -30,10 +30,11 @@ class TestMainFilter(unittest.TestCase):
 
         main_mod = self._load_main_module()
 
-        with patch('bb_sync_main.CdpSession'), \
+        with patch('bb_sync_main.BbSession'), \
+             patch('bb_sync_main.SYNC_MODULES', {"FN585"}), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=mock_syncer), \
-             patch('sys.argv', ['bb_sync']):
+             patch('sys.argv', ['bb_sync', '--no-grades']):
             main_mod.main()
 
         synced_names = [
@@ -41,6 +42,34 @@ class TestMainFilter(unittest.TestCase):
         ]
         self.assertNotIn("BY150 - Introduction to Business", synced_names)
         self.assertIn("FN585 - Corporate Finance", synced_names)
+
+    def test_default_is_current_term(self):
+        """With no --modules and no allowlist, only the current term's courses sync."""
+        mock_client = MagicMock()
+        mock_client.get_current_user.return_value = {"id": "u1"}
+        mock_client.get_courses.return_value = [
+            {"id": "_1_1", "name": "FA565 - Old", "term_id": "_2025"},
+            {"id": "_2_1", "name": "BY138 - New", "term_id": "_2026"},
+            {"id": "_3_1", "name": "BY150 - New", "term_id": "_2026"},
+        ]
+        mock_syncer = MagicMock()
+        main_mod = self._load_main_module()
+        with patch('bb_sync_main.BbSession'), \
+             patch('bb_sync_main.SYNC_MODULES', set()), \
+             patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
+             patch('bb_sync_main.Syncer', return_value=mock_syncer), \
+             patch('sys.argv', ['bb_sync', '--no-grades']):
+            main_mod.main()
+        synced = [call.args[1] for call in mock_syncer.sync_course.call_args_list]
+        self.assertEqual(synced, ["BY138 - New", "BY150 - New"])
+
+    def test_not_logged_in_exits_3(self):
+        main_mod = self._load_main_module()
+        with patch('bb_sync_main.BbSession') as bbs, patch('sys.argv', ['bb_sync', '--list-courses']):
+            bbs.return_value.ensure_logged_in.return_value = None
+            with self.assertRaises(SystemExit) as ctx:
+                main_mod.main()
+        self.assertEqual(ctx.exception.code, 3)
 
 
     def _load_main_module(self):
@@ -66,10 +95,10 @@ class TestMainFilter(unittest.TestCase):
         mock_syncer = MagicMock()
         main_mod = self._load_main_module()
 
-        with patch('bb_sync_main.CdpSession'), \
+        with patch('bb_sync_main.BbSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=mock_syncer), \
-             patch('sys.argv', ['bb_sync', '--modules', 'FA565']):
+             patch('sys.argv', ['bb_sync', '--no-grades', '--modules', 'FA565']):
             main_mod.main()
 
         synced = [call.args[1] for call in mock_syncer.sync_course.call_args_list]
@@ -88,10 +117,10 @@ class TestMainFilter(unittest.TestCase):
         mock_syncer = MagicMock()
         main_mod = self._load_main_module()
 
-        with patch('bb_sync_main.CdpSession'), \
+        with patch('bb_sync_main.BbSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=mock_syncer), \
-             patch('sys.argv', ['bb_sync', '--modules', 'FA565', 'FN585']):
+             patch('sys.argv', ['bb_sync', '--no-grades', '--modules', 'FA565', 'FN585']):
             main_mod.main()
 
         synced = [call.args[1] for call in mock_syncer.sync_course.call_args_list]
@@ -110,7 +139,7 @@ class TestMainFilter(unittest.TestCase):
         main_mod = self._load_main_module()
 
         buf = io.StringIO()
-        with patch('bb_sync_main.CdpSession'), \
+        with patch('bb_sync_main.BbSession'), \
              patch('bb_sync_main.BlackboardClient', return_value=mock_client), \
              patch('bb_sync_main.Syncer', return_value=MagicMock()), \
              patch('sys.argv', ['bb_sync', '--list-courses']), \
