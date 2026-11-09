@@ -28,13 +28,22 @@ _COOKIE_FILE = "bb-cookies.json"
 
 # JSON API calls run as fetch() inside a Blackboard page so the browser supplies
 # whatever session/XSRF state Blackboard expects (plain cookie replay gets 401).
-_FETCH_JS = """async ({path, params}) => {
+_FETCH_JS = """async ({path, params, timeoutMs}) => {
   const url = new URL(path, location.origin);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
-  const r = await fetch(url.toString(), {credentials: 'include', headers: {Accept: 'application/json'}});
-  let body = null;
-  if (r.ok) { try { body = await r.json(); } catch (e) { body = null; } }
-  return {status: r.status, body};
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs || 60000);
+  try {
+    const r = await fetch(url.toString(), {credentials: 'include', headers: {Accept: 'application/json'},
+                                           signal: ctrl.signal});
+    let body = null;
+    if (r.ok) { try { body = await r.json(); } catch (e) { body = null; } }
+    return {status: r.status, body, url: r.url, href: location.href};
+  } catch (e) {
+    return {status: 0, body: null, error: String(e && e.name || e)};
+  } finally {
+    clearTimeout(timer);
+  }
 }"""
 
 
@@ -63,6 +72,8 @@ class BbSession:
         self._pw = None
         self._context = None
         self._page = None
+        self._probe = None  # dedicated tab for the login check (see _probe_me)
+        self._last_auth_log: dict[str, str] = {}
         self._sso_hosts: set[str] = set()  # SharePoint sites already signed in this run
 
     # ── lifecycle ────────────────────────────────────────────────────────────
@@ -92,7 +103,7 @@ class BbSession:
                     closer()
                 except Exception:
                     pass
-        self._context = self._pw = self._page = None
+        self._context = self._pw = self._page = self._probe = None
 
     def _launch(self):
         # Configured browser (Brave by default) first, then installed Edge/Chrome
@@ -147,19 +158,30 @@ class BbSession:
         if not self._on_bb(page):
             return None
         try:
-            value = page.evaluate(_FETCH_JS, {"path": ME_PATH, "params": {}})
+            value = page.evaluate(_FETCH_JS, {"path": ME_PATH, "params": {}, "timeoutMs": 10000})
+            self._log_auth("in-page", value.get("status"),
+                           f"{value.get('error') or value.get('url')} | page.url={page.url} href={value.get('href')}")
             if value.get("status") == 200 and value.get("body"):
                 return value["body"]
         except Exception as e:  # page navigated mid-evaluate, or the page's JS world is unusable
-            print(f"[auth] in-page check failed: {str(e).splitlines()[0][:120]}", file=sys.stderr, flush=True)
+            self._log_auth("in-page", "exception", str(e).splitlines()[0][:120])
         # Fallback: a direct request sharing the browser's cookie jar.
         try:
-            r = self._context.request.get(self._base + ME_PATH, headers={"Accept": "application/json"})
+            r = self._context.request.get(self._base + ME_PATH, headers={"Accept": "application/json"},
+                                          timeout=15000)
+            self._log_auth("direct", r.status, r.url)
             if r.ok:
                 return r.json()
         except Exception as e:
-            print(f"[auth] direct check failed: {str(e).splitlines()[0][:120]}", file=sys.stderr, flush=True)
+            self._log_auth("direct", "exception", str(e).splitlines()[0][:120])
         return None
+
+    def _log_auth(self, kind: str, status, detail) -> None:
+        """Log an auth-check result to stderr, only when it differs from the last one of that kind."""
+        line = f"[auth] {kind} check: {status} {detail or ''}".rstrip()
+        if self._last_auth_log.get(kind) != line:
+            print(line, file=sys.stderr, flush=True)
+            self._last_auth_log[kind] = line
 
     def ensure_logged_in(self, silent_timeout: float = 20.0) -> dict | None:
         """Return the current user if the saved session works, else None.
@@ -210,14 +232,44 @@ class BbSession:
                 return None  # browser window was closed
             if not pages:
                 return None
-            for p in pages:
-                me = self._me_from(p)
+            self._log_auth("pages", len(pages), " ".join(p.url[:80] for p in pages))
+            # Only probe once the user is back on Blackboard (not mid sign-in on the IdP).
+            if any(self._on_bb(p) and p is not self._probe for p in pages):
+                me = self._probe_me()
                 if me:
-                    self._page = p
+                    self._page = self._probe
                     self._save_cookies()
                     return me
-            time.sleep(2)
+            # Not time.sleep: the sync API only processes browser events (navigations,
+            # new execution contexts) while a Playwright call is running. Sleeping
+            # outside one freezes page.url at the sign-in page, so a login never shows up.
+            try:
+                pages[0].wait_for_timeout(2000)
+            except Exception:
+                time.sleep(2)  # that page closed mid-wait; the next pass re-lists pages
         return None
+
+    def _probe_me(self) -> dict | None:
+        """Check users/me from a dedicated tab parked on the JSON endpoint.
+
+        The user's own tab is a poor place for the check: the Ultra page never
+        finishes loading and keeps navigating, so evaluate() there races with it.
+        The endpoint itself is a plain JSON document on the Blackboard origin that
+        loads at once, and re-navigating to it each pass refreshes the session state.
+        """
+        try:
+            if self._probe is None or self._probe.is_closed():
+                user_page = self._page
+                self._probe = self._context.new_page()
+                try:
+                    user_page.bring_to_front()  # keep the user's tab in front
+                except Exception:
+                    pass
+            self._probe.goto(self._base + ME_PATH, wait_until="domcontentloaded", timeout=15000)
+        except Exception as e:
+            self._log_auth("probe", "exception", str(e).splitlines()[0][:120])
+            return None
+        return self._me_from(self._probe)
 
     # ── API used by BlackboardClient ─────────────────────────────────────────
     def fetch_json(self, path: str, params: dict | None = None) -> dict:
